@@ -133,9 +133,41 @@ class Themes {
 
 		contents = this.rendition.getContents();
 		contents.forEach( (content) => {
-			content.removeClass(prev);
-			content.addClass(name);
+			if (prev && prev !== "default") {
+				this._setStylesheetDisabled(prev, content, true);
+				content.removeClass(prev);
+			}
+
+			if (name && name !== "default") {
+				this._setStylesheetDisabled(name, content, false);
+				content.addClass(name);
+			}
 		});
+	}
+
+	_getStylesheetNode(name, contents) {
+		var theme = this._themes[name];
+
+		if (!theme || !contents || !contents.document) {
+			return;
+		}
+
+		if (theme.url) {
+			return contents.document.querySelector("link[href='"+theme.url+"']");
+		}
+
+		return contents.document.getElementById("epubjs-inserted-css-" + name);
+	}
+
+	_setStylesheetDisabled(name, contents, disabled) {
+		var node = this._getStylesheetNode(name, contents);
+
+		if (node) {
+			node.disabled = disabled;
+			if (node.sheet) {
+				node.sheet.disabled = disabled;
+			}
+		}
 	}
 
 	/**

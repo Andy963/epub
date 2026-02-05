@@ -766,11 +766,25 @@ class Contents {
 	 */
 	addStylesheetRules(rules, key) {
 		var styleSheet;
+		var styleEl;
 
 		if(!this.document || !rules || rules.length === 0) return;
 
 		// Grab style sheet
-		styleSheet = this._getStylesheetNode(key).sheet;
+		styleEl = this._getStylesheetNode(key);
+		styleSheet = styleEl.sheet;
+
+		if (styleSheet && styleSheet.cssRules && styleSheet.cssRules.length) {
+			try {
+				for (var c = styleSheet.cssRules.length - 1; c >= 0; c--) {
+					styleSheet.deleteRule(c);
+				}
+			} catch (e) {
+				// Fallback for browsers that don't allow deleting cssRules
+				styleEl.innerHTML = "";
+				styleSheet = styleEl.sheet;
+			}
+		}
 
 		if (Object.prototype.toString.call(rules) === "[object Array]") {
 			for (var i = 0, rl = rules.length; i < rl; i++) {
