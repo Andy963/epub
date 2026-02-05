@@ -18,6 +18,7 @@ class Themes {
 		this._overrides = {};
 		this._current = "default";
 		this._injected = [];
+		this._overrideRaf = new WeakMap();
 		this.rendition.hooks.content.register(this.inject.bind(this));
 		this.rendition.hooks.content.register(this.overrides.bind(this));
 
@@ -244,6 +245,21 @@ class Themes {
 
 		contents.forEach( (content) => {
 			content.css(name, this._overrides[name].value, this._overrides[name].priority);
+			if (content.window && content.window.requestAnimationFrame) {
+				let prev = this._overrideRaf.get(content);
+				if (prev && content.window.cancelAnimationFrame) {
+					content.window.cancelAnimationFrame(prev);
+				}
+
+				let raf = content.window.requestAnimationFrame(() => {
+					this._overrideRaf.delete(content);
+					if (content.expand) {
+						content.expand();
+					}
+				});
+
+				this._overrideRaf.set(content, raf);
+			}
 		});
 	}
 
@@ -293,6 +309,7 @@ class Themes {
 		this._overrides = undefined;
 		this._current = undefined;
 		this._injected = undefined;
+		this._overrideRaf = undefined;
 	}
 
 }

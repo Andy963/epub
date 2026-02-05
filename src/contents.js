@@ -384,7 +384,7 @@ class Contents {
 
 		this.mediaQueryListeners();
 
-		// this.fontLoadListeners();
+		this.fontLoadListeners();
 
 		this.addEventListeners();
 
