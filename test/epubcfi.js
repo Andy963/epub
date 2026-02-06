@@ -420,6 +420,18 @@ describe('EpubCFI', function() {
 
 		});
 
+		it('falls back to the parent node when xpath text target is missing (#470)', function() {
+			var contents = '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><h2 id="h2-5"><a id="page_39"></a><span class="small">01100010110010</span>\u00A0<b>5.</b>\u00A0<span class="small">10010111010100</span></h2></body></html>';
+			var issueDoc = new DOMParser().parseFromString(contents, "application/xhtml+xml");
+			var cfi = new EpubCFI("epubcfi(/6/18!/4/2[h2-5]/5:0)");
+			var range = cfi.toRange(issueDoc);
+
+			assert.ok(range, "range should be resolved even if xpath text node is missing");
+			assert.equal(range.startContainer.nodeType, Node.ELEMENT_NODE);
+			assert.equal(range.startContainer.getAttribute("id"), "h2-5");
+			assert.equal(range.startOffset, 0);
+		});
+
 	});
 
 });
