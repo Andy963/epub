@@ -345,12 +345,23 @@ class PdfBook {
 					return null;
 				}
 			},
+			percentageFromCfi: (cfi) => {
+				try {
+					const loc = book.locations.locationFromCfi(cfi);
+					return book.locations.percentageFromLocation(loc);
+				} catch (e) {
+					return null;
+				}
+			},
 			percentageFromLocation: (location) => {
 				const total = book.numPages || 0;
 				if (!total || typeof location !== "number") {
 					return null;
 				}
 				return Math.max(0, Math.min(1, location / Math.max(1, total - 1)));
+			},
+			cfiFromLocation: (location) => {
+				return book.locations.cfiFromPercentage(location);
 			},
 			cfiFromPercentage: (percentage) => {
 				const total = book.numPages || 0;

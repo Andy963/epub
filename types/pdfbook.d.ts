@@ -28,6 +28,17 @@ export default class PdfBook {
   numPages: number;
   spine: Spine;
   navigation?: Navigation;
+  locations: {
+    length: () => number;
+    locationFromCfi: (cfi: string) => number | null;
+    percentageFromCfi: (cfi: string) => number | null;
+    percentageFromLocation: (location: number | null) => number | null;
+    cfiFromLocation: (location: number) => string | null;
+    cfiFromPercentage: (percentage: number) => string | null;
+  };
+  pageList: {
+    pageFromCfi: (cfi: string) => number;
+  };
 
   open(input: string | ArrayBuffer | Blob): Promise<PdfBook>;
   section(target: string | number): any;
