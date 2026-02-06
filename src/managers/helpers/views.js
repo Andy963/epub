@@ -81,8 +81,12 @@ class Views {
 			view.destroy();
 		}
 		
-		if(this.container){
-			 this.container.removeChild(view.element);
+		if(view && view.element && view.element.parentNode){
+			try {
+				view.element.parentNode.removeChild(view.element);
+			} catch (e) {
+				// Ignore DOM race conditions (e.g. already removed)
+			}
 		}
 		view = null;
 	}
