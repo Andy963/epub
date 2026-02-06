@@ -5,6 +5,58 @@ import Contents from "../../contents";
 import { EVENTS } from "../../utils/constants";
 import { Pane, Highlight, Underline } from "marks-pane";
 
+function isSameRect(rectA, rectB) {
+	return (
+		rectA.top === rectB.top &&
+		rectA.right === rectB.right &&
+		rectA.bottom === rectB.bottom &&
+		rectA.left === rectB.left
+	);
+}
+
+function strictlyContainsRect(container, target) {
+	if (
+		target.right > container.right ||
+		target.left < container.left ||
+		target.top < container.top ||
+		target.bottom > container.bottom
+	) {
+		return false;
+	}
+
+	return !isSameRect(container, target);
+}
+
+export function filterContainedRects(rects) {
+	const ranges = Array.from(rects || []);
+
+	return ranges.filter((currentRect, currentIndex) => {
+		return !ranges.some((candidateRect, candidateIndex) => {
+			if (candidateIndex === currentIndex) {
+				return false;
+			}
+
+			if (isSameRect(candidateRect, currentRect)) {
+				return candidateIndex < currentIndex;
+			}
+
+			return strictlyContainsRect(currentRect, candidateRect);
+		});
+	});
+}
+
+class EpubHighlight extends Highlight {
+	filteredRanges() {
+		return filterContainedRects(this.range.getClientRects());
+	}
+}
+
+class EpubUnderline extends Underline {
+	filteredRanges() {
+		return filterContainedRects(this.range.getClientRects());
+	}
+}
+
 class IframeView {
 	constructor(section, options) {
 		this.settings = extend({
@@ -784,7 +836,7 @@ class IframeView {
 			this.pane = new Pane(this.iframe, this.element);
 		}
 
-		let m = new Highlight(range, className, data, attributes);
+		let m = new EpubHighlight(range, className, data, attributes);
 		let h = this.pane.addMark(m);
 
 		this.highlights[cfiRange] = { "mark": h, "element": h.element, "listeners": [emitter, cb] };
@@ -816,7 +868,7 @@ class IframeView {
 			this.pane = new Pane(this.iframe, this.element);
 		}
 
-		let m = new Underline(range, className, data, attributes);
+		let m = new EpubUnderline(range, className, data, attributes);
 		let h = this.pane.addMark(m);
 
 		this.underlines[cfiRange] = { "mark": h, "element": h.element, "listeners": [emitter, cb] };

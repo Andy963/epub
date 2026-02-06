@@ -1,5 +1,6 @@
 import assert from "assert";
 import Views from "../src/managers/helpers/views";
+import { filterContainedRects } from "../src/managers/views/iframe";
 
 describe("Views", function () {
   it("should not throw when removing a view already detached (#1390)", function () {
@@ -33,3 +34,37 @@ describe("Views", function () {
   });
 });
 
+describe("IframeView underline rect filtering", function () {
+  it("should drop container rects so cross-paragraph underlines stay aligned (#1415)", function () {
+    const lineOne = {
+      top: 10,
+      left: 10,
+      right: 210,
+      bottom: 30,
+      width: 200,
+      height: 20,
+    };
+    const lineTwo = {
+      top: 40,
+      left: 10,
+      right: 190,
+      bottom: 60,
+      width: 180,
+      height: 20,
+    };
+    const paragraphBox = {
+      top: 10,
+      left: 10,
+      right: 210,
+      bottom: 80,
+      width: 200,
+      height: 70,
+    };
+
+    const filtered = filterContainedRects([paragraphBox, lineOne, lineTwo]);
+
+    assert.equal(filtered.length, 2);
+    assert.ok(filtered.includes(lineOne));
+    assert.ok(filtered.includes(lineTwo));
+  });
+});
