@@ -679,9 +679,14 @@ class DefaultViewManager {
 		// this.q.clear();
 
 		if (this.views) {
+			const removedViews = this.views.slice();
 			this.views.hide();
 			this.scrollTo(0,0, true);
 			this.views.clear();
+
+			removedViews.forEach((view) => {
+				this.emit(EVENTS.MANAGERS.REMOVED, view);
+			});
 		}
 	}
 

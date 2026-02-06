@@ -1,6 +1,8 @@
 import assert from "assert";
 import Views from "../src/managers/helpers/views";
+import DefaultViewManager from "../src/managers/default";
 import { filterContainedRects } from "../src/managers/views/iframe";
+import { EVENTS } from "../src/utils/constants";
 
 describe("Views", function () {
   it("should not throw when removing a view already detached (#1390)", function () {
@@ -66,5 +68,46 @@ describe("IframeView underline rect filtering", function () {
     assert.equal(filtered.length, 2);
     assert.ok(filtered.includes(lineOne));
     assert.ok(filtered.includes(lineTwo));
+  });
+});
+
+describe("DefaultViewManager removed event", function () {
+  it("should emit removed when clearing views so unloaded hooks can run (#933)", function () {
+    const firstView = { id: "first" };
+    const secondView = { id: "second" };
+    const events = [];
+
+    const manager = {
+      views: {
+        hideCalled: false,
+        clearCalled: false,
+        hide() {
+          this.hideCalled = true;
+        },
+        clear() {
+          this.clearCalled = true;
+        },
+        slice() {
+          return [firstView, secondView];
+        },
+      },
+      scrollToArgs: null,
+      scrollTo(x, y, silent) {
+        this.scrollToArgs = [x, y, silent];
+      },
+      emit(type, view) {
+        events.push({ type, view });
+      },
+    };
+
+    DefaultViewManager.prototype.clear.call(manager);
+
+    assert.equal(manager.views.hideCalled, true);
+    assert.equal(manager.views.clearCalled, true);
+    assert.deepEqual(manager.scrollToArgs, [0, 0, true]);
+    assert.deepEqual(events, [
+      { type: EVENTS.MANAGERS.REMOVED, view: firstView },
+      { type: EVENTS.MANAGERS.REMOVED, view: secondView },
+    ]);
   });
 });
