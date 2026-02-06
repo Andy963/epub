@@ -2,6 +2,7 @@ import Book from "./book";
 import Contents from "./contents";
 import Section from "./section";
 import View from "./managers/view";
+import { ViewLocation } from "./managers/manager";
 import Hook from "./utils/hook";
 import Themes from "./themes";
 import EpubCFI from "./epubcfi";
@@ -75,8 +76,8 @@ export default class Rendition {
 
     clear(): void;
 
-    currentLocation(): DisplayedLocation;
-    currentLocation(): Promise<DisplayedLocation>;
+    currentLocation(): Location;
+    currentLocation(): Promise<Location>;
 
     destroy(): void;
 
@@ -103,7 +104,7 @@ export default class Rendition {
 
     layout(settings: any): any;
 
-    located(location: Location): DisplayedLocation;
+    located(location: ViewLocation[]): Location;
 
     moveTo(offset: number): void;
 
