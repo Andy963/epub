@@ -39,6 +39,7 @@ import ContinuousViewManager from "./managers/continuous/index";
  * @param {string} [options.defaultDirection='ltr'] default text direction
  * @param {boolean} [options.allowScriptedContent=false] enable running scripts in content
  * @param {boolean} [options.allowPopups=false] enable opening popup in content
+ * @param {boolean | number} [options.prefetch=false] prefetch neighboring sections after display
  */
 class Rendition {
 	constructor(book, options) {
@@ -59,7 +60,8 @@ class Rendition {
 			snap: false,
 			defaultDirection: "ltr",
 			allowScriptedContent: false,
-			allowPopups: false
+			allowPopups: false,
+			prefetch: false
 		});
 
 		extend(this.settings, options);
@@ -351,6 +353,10 @@ class Rendition {
 			return displayed;
 		}
 
+		if (this.book && typeof this.book.cancelPrefetch === "function") {
+			this.book.cancelPrefetch();
+		}
+
 		this.manager.display(section, target)
 			.then(() => {
 				displaying.resolve(section);
@@ -431,6 +437,20 @@ class Rendition {
 
 		view.on(EVENTS.VIEWS.MARK_CLICKED, (cfiRange, data) => this.triggerMarkEvent(cfiRange, data, view.contents));
 
+		const onRendered = () => {
+			this.emit(EVENTS.RENDITION.RENDERED, view.section, view);
+
+			if (this.book && typeof this.book.pinSection === "function") {
+				this.book.pinSection(view.section);
+			}
+
+			if (this.book && this.settings.prefetch) {
+				this.book.prefetch(view.section, this.settings.prefetch).catch(() => {
+					return;
+				});
+			}
+		};
+
 		this.hooks.render.trigger(view, this)
 			.then(() => {
 				if (view.contents) {
@@ -442,10 +462,10 @@ class Rendition {
 						 * @param {View} view
 						 * @memberof Rendition
 						 */
-						this.emit(EVENTS.RENDITION.RENDERED, view.section, view);
+						onRendered();
 					});
 				} else {
-					this.emit(EVENTS.RENDITION.RENDERED, view.section, view);
+					onRendered();
 				}
 			});
 
@@ -457,6 +477,13 @@ class Rendition {
 	 * @param  {*} view
 	 */
 	afterRemoved(view){
+		if (this.book && typeof this.book.unpinSection === "function") {
+			this.book.unpinSection(view.section);
+		}
+		if (this.book && this.book.resources && typeof this.book.resources.unload === "function") {
+			this.book.resources.unload(view.id);
+		}
+
 		this.hooks.unloaded.trigger(view, this).then(() => {
 			/**
 			 * Emit that a section has been removed

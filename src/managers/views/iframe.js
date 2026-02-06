@@ -203,6 +203,9 @@ class IframeView {
 		this.size();
 
 		if(!this.sectionRender) {
+			if (this.section) {
+				this.section._resourceParentKey = this.id;
+			}
 			this.sectionRender = this.section.render(request);
 		}
 

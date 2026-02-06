@@ -15,6 +15,9 @@ import request from "./utils/request";
 import EpubCFI from "./epubcfi";
 import Store from "./store";
 import DisplayOptions from "./displayoptions";
+import PerformanceTracker from "./utils/performance";
+import ResourceResolver from "./core/resource-resolver";
+import SpineLoader from "./core/spine-loader";
 import { EPUBJS_VERSION, EVENTS } from "./utils/constants";
 
 const CONTAINER_PATH = "META-INF/container.xml";
@@ -66,11 +69,17 @@ class Book {
 			replacements: undefined,
 			canonical: undefined,
 			openAs: undefined,
-			store: undefined
+			store: undefined,
+			metrics: false,
+			prefetchDistance: 1,
+			maxLoadedSections: 0,
+			lazyResources: false
 		});
 
 		extend(this.settings, options);
 
+		const metricsOptions = typeof this.settings.metrics === "undefined" ? false : this.settings.metrics;
+		this.performance = new PerformanceTracker(metricsOptions);
 
 		// Promises
 		this.opening = new defer();
@@ -182,6 +191,22 @@ class Book {
 		 */
 		this.archive = undefined;
 
+		this.resourceResolver = new ResourceResolver({
+			resolvePath: this.resolve.bind(this),
+			isArchived: () => this.archived,
+			requestArchive: (resolvedPath, type) => this.archive.request(resolvedPath, type),
+			requestRemote: (resolvedPath, type, credentials, headers, options) => this.request(resolvedPath, type, credentials, headers, options),
+			requestCredentials: () => this.settings.requestCredentials,
+			requestHeaders: () => this.settings.requestHeaders,
+			performance: this.performance
+		});
+
+		this.spineLoader = new SpineLoader({
+			loadResource: this.load.bind(this),
+			performance: this.performance,
+			maxLoadedSections: this.settings.maxLoadedSections
+		});
+
 		/**
 		 * @member {Store} storage
 		 * @memberof Book
@@ -247,6 +272,9 @@ class Book {
 	open(input, what) {
 		var opening;
 		var type = what || this.determineType(input);
+		var span = this.performance.start("book.open", {
+			type: type
+		});
 
 		if (type === INPUT_TYPE.BINARY) {
 			this.archived = true;
@@ -273,7 +301,18 @@ class Book {
 				.then(this.openPackaging.bind(this));
 		}
 
-		return opening;
+		return opening.then((result) => {
+			this.performance.end(span, {
+				status: "resolved"
+			});
+			return result;
+		}).catch((error) => {
+			this.performance.end(span, {
+				status: "rejected",
+				error: error && error.message
+			});
+			throw error;
+		});
 	}
 
 	/**
@@ -341,15 +380,128 @@ class Book {
 	/**
 	 * Load a resource from the Book
 	 * @param  {string} path path to the resource to load
+	 * @param  {string} [type] specify the type of the returned result
+	 * @param  {boolean} [withCredentials]
+	 * @param  {object} [headers]
+	 * @param  {object} [options]
 	 * @return {Promise}     returns a promise with the requested resource
 	 */
-	load(path) {
-		var resolved = this.resolve(path);
-		if(this.archived) {
-			return this.archive.request(resolved);
-		} else {
-			return this.request(resolved, null, this.settings.requestCredentials, this.settings.requestHeaders);
+	load(path, type, withCredentials, headers, options) {
+		return this.resourceResolver.load(path, type, withCredentials, headers, options);
+	}
+
+	/**
+	 * Get a snapshot of collected performance entries
+	 * @returns {{enabled: boolean, counters: object, entries: Array, activeSpans: number}}
+	 */
+	getPerformanceSnapshot() {
+		return this.performance.snapshot();
+	}
+
+	/**
+	 * Clear recorded performance entries and counters
+	 */
+	clearPerformanceMetrics() {
+		this.performance.reset();
+	}
+
+	/**
+	 * Prefetch neighboring sections for a target section
+	 * @param  {Section | string | number} target
+	 * @param  {number | boolean} [distance]
+	 * @return {Promise<Array<any>>}
+	 */
+	prefetch(target, distance) {
+		if (!this.spineLoader) {
+			return Promise.resolve([]);
 		}
+
+		let section = target;
+		if (!section || typeof section.load !== "function") {
+			section = this.spine.get(target);
+		}
+
+		if (!section) {
+			return Promise.resolve([]);
+		}
+
+		if (distance === false) {
+			return Promise.resolve([]);
+		}
+
+		let resolvedDistance = distance;
+		if (resolvedDistance === true || typeof resolvedDistance === "undefined" || resolvedDistance === null) {
+			resolvedDistance = this.settings.prefetchDistance;
+		}
+
+		if (typeof resolvedDistance !== "number" || resolvedDistance <= 0) {
+			resolvedDistance = 1;
+		}
+
+		const span = this.performance.start("book.prefetch", {
+			sectionIndex: section.index,
+			href: section.href,
+			distance: resolvedDistance
+		});
+
+		return this.spineLoader.prefetch(section, resolvedDistance).then((results) => {
+			this.performance.end(span, {
+				status: "resolved",
+				loaded: results.filter(Boolean).length
+			});
+			return results;
+		}).catch((error) => {
+			this.performance.end(span, {
+				status: "rejected",
+				error: error && error.message
+			});
+			throw error;
+		});
+	}
+
+	/**
+	 * Cancel active prefetch tasks
+	 */
+	cancelPrefetch() {
+		if (!this.spineLoader) {
+			return;
+		}
+
+		return this.spineLoader.cancelPrefetch();
+	}
+
+	pinSection(target) {
+		if (!this.spineLoader || typeof this.spineLoader.pin !== "function") {
+			return;
+		}
+
+		let section = target;
+		if (!section || typeof section.load !== "function") {
+			section = this.spine.get(target);
+		}
+
+		if (!section) {
+			return;
+		}
+
+		this.spineLoader.pin(section);
+	}
+
+	unpinSection(target) {
+		if (!this.spineLoader || typeof this.spineLoader.unpin !== "function") {
+			return;
+		}
+
+		let section = target;
+		if (!section || typeof section.load !== "function") {
+			section = this.spine.get(target);
+		}
+
+		if (!section) {
+			return;
+		}
+
+		this.spineLoader.unpin(section);
 	}
 
 	/**
@@ -474,8 +626,10 @@ class Book {
 		this.resources = new Resources(this.packaging.manifest, {
 			archive: this.archive,
 			resolver: this.resolve.bind(this),
-			request: this.request.bind(this),
-			replacements: this.settings.replacements || (this.archived ? "blobUrl" : "base64")
+			request: this.load.bind(this),
+			replacements: this.settings.replacements || (this.archived ? "blobUrl" : "base64"),
+			lazy: this.settings.lazyResources,
+			performance: this.performance
 		});
 
 		this.loadNavigation(this.packaging).then(() => {
@@ -499,15 +653,22 @@ class Book {
 		if(this.archived || this.settings.replacements && this.settings.replacements != "none") {
 			this.replacements().then(() => {
 				this.loaded.displayOptions.then(() => {
+					this.performance.mark("book.ready", {
+						archived: this.archived,
+						spineLength: this.spine && this.spine.length
+					});
 					this.opening.resolve(this);
 				});
-			})
-			.catch((err) => {
+			}).catch((err) => {
 				console.error(err);
 			});
 		} else {
 			// Resolve book opened promise
 			this.loaded.displayOptions.then(() => {
+				this.performance.mark("book.ready", {
+					archived: this.archived,
+					spineLength: this.spine && this.spine.length
+				});
 				this.opening.resolve(this);
 			});
 		}
@@ -680,16 +841,21 @@ class Book {
 			}
 			// Substitute hook
 			let substituteResources = (output, section) => {
+				if (this.resources && this.resources.settings && this.resources.settings.lazy) {
+					return this.resources.replace(output, section);
+				}
+
 				section.output = this.resources.substitute(output, section.url);
 			};
 
 			// Set to use replacements
 			this.resources.settings.replacements = replacementsSetting || "blobUrl";
 			// Create replacement urls
-			this.resources.replacements().
-				then(() => {
+			if (!this.resources.settings.lazy) {
+				this.resources.replacements().then(() => {
 					return this.resources.replaceCss();
 				});
+			}
 
 			this.storage.on("offline", () => {
 				// Remove url to use relative resolving for hrefs
@@ -735,13 +901,20 @@ class Book {
 	 */
 	replacements() {
 		this.spine.hooks.serialize.register((output, section) => {
+			if (this.resources && this.resources.settings && this.resources.settings.lazy) {
+				return this.resources.replace(output, section);
+			}
+
 			section.output = this.resources.substitute(output, section.url);
 		});
 
-		return this.resources.replacements().
-			then(() => {
-				return this.resources.replaceCss();
-			});
+		if (this.resources && this.resources.settings && this.resources.settings.lazy) {
+			return Promise.resolve();
+		}
+
+		return this.resources.replacements().then(() => {
+			return this.resources.replaceCss();
+		});
 	}
 
 	/**
@@ -752,16 +925,336 @@ class Book {
 	getRange(cfiRange) {
 		var cfi = new EpubCFI(cfiRange);
 		var item = this.spine.get(cfi.spinePos);
-		var _request = this.load.bind(this);
 		if (!item) {
 			return new Promise((resolve, reject) => {
 				reject("CFI could not be found");
 			});
 		}
-		return item.load(_request).then(function (contents) {
+		return this.spineLoader.load(item).then(function () {
 			var range = cfi.toRange(item.document);
 			return range;
 		});
+	}
+
+	/**
+	 * Search the book for a string
+	 * @param {string} query
+	 * @param {object} [options]
+	 * @param {AbortSignal} [options.signal]
+	 * @param {number} [options.maxResults]
+	 * @param {number} [options.maxSeqEle]
+	 * @param {boolean} [options.unload=true] unload sections after searching (skips pinned sections)
+	 * @param {function} [options.onProgress]
+	 * @return {Promise<Array<{sectionIndex: number, href: string, cfi: string, excerpt: string}>>}
+	 */
+	async search(query, options) {
+		if (!query || typeof query !== "string") {
+			return [];
+		}
+
+		query = query.trim();
+		if (!query) {
+			return [];
+		}
+
+		options = options || {};
+		const signal = options.signal;
+		const maxSeqEle = typeof options.maxSeqEle === "number" && options.maxSeqEle > 0 ? Math.floor(options.maxSeqEle) : undefined;
+		const unload = options.unload !== false;
+		const onProgress = typeof options.onProgress === "function" ? options.onProgress : undefined;
+
+		let maxResults = Infinity;
+		if (typeof options.maxResults === "number" && isFinite(options.maxResults) && options.maxResults >= 0) {
+			maxResults = Math.floor(options.maxResults);
+		}
+
+		await this.ready;
+
+		const sections = (this.spine && this.spine.spineItems) ? this.spine.spineItems : [];
+		const total = sections.length;
+		const results = [];
+
+		for (let i = 0; i < sections.length; i += 1) {
+			const section = sections[i];
+			if (!section || !section.linear) {
+				continue;
+			}
+
+			if (signal && signal.aborted) {
+				throw {
+					name: "AbortError",
+					message: "Aborted"
+				};
+			}
+
+			if (this.spineLoader) {
+				await this.spineLoader.load(section, signal ? { signal } : undefined);
+			} else {
+				await section.load(signal ? (url) => this.load(url, undefined, undefined, undefined, { signal }) : this.load.bind(this));
+			}
+
+			const matches = maxSeqEle ? section.search(query, maxSeqEle) : section.search(query);
+			for (const match of matches) {
+				results.push({
+					sectionIndex: section.index,
+					href: section.href,
+					cfi: match.cfi,
+					excerpt: match.excerpt
+				});
+
+				if (results.length >= maxResults) {
+					break;
+				}
+			}
+
+			if (onProgress) {
+				onProgress({
+					sectionIndex: section.index,
+					href: section.href,
+					processed: i + 1,
+					total,
+					results: results.length
+				});
+			}
+
+			if (unload && this.spineLoader && !this.spineLoader.isPinned(section) && typeof section.unload === "function") {
+				section.unload();
+			}
+
+			if (results.length >= maxResults) {
+				break;
+			}
+		}
+
+		return results;
+	}
+
+	/**
+	 * Search the book for a string without generating CFIs
+	 * @param {string} query
+	 * @param {object} [options]
+	 * @param {AbortSignal} [options.signal]
+	 * @param {number} [options.maxResults]
+	 * @param {number} [options.maxResultsPerSection]
+	 * @param {number} [options.excerptLimit]
+	 * @param {boolean} [options.useWorker]
+	 * @param {Worker} [options.worker]
+	 * @param {function} [options.onProgress]
+	 * @return {Promise<Array<{sectionIndex: number, href: string, matches: Array<{index: number, excerpt: string}>}>>}
+	 */
+	async searchText(query, options) {
+		if (!query || typeof query !== "string") {
+			return [];
+		}
+
+		query = query.trim();
+		if (!query) {
+			return [];
+		}
+
+		options = options || {};
+		const signal = options.signal;
+		const maxResultsPerSection = typeof options.maxResultsPerSection === "number" && options.maxResultsPerSection > 0
+			? Math.floor(options.maxResultsPerSection)
+			: 50;
+		const excerptLimit = typeof options.excerptLimit === "number" && options.excerptLimit > 0
+			? Math.floor(options.excerptLimit)
+			: 150;
+		const onProgress = typeof options.onProgress === "function" ? options.onProgress : undefined;
+
+		let maxResults = Infinity;
+		if (typeof options.maxResults === "number" && isFinite(options.maxResults) && options.maxResults >= 0) {
+			maxResults = Math.floor(options.maxResults);
+		}
+
+		await this.ready;
+
+		const sections = (this.spine && this.spine.spineItems) ? this.spine.spineItems : [];
+		const total = sections.length;
+		const results = [];
+
+		const stripMarkup = (markup) => {
+			if (!markup || typeof markup !== "string") {
+				return "";
+			}
+			return markup.replace(/<[^>]*>/g, " ");
+		};
+
+		const findMatches = (text) => {
+			const matches = [];
+			const haystack = text.toLowerCase();
+			const needle = query.toLowerCase();
+			let lastIndex = 0;
+
+			while (matches.length < maxResultsPerSection) {
+				const index = haystack.indexOf(needle, lastIndex);
+				if (index === -1) {
+					break;
+				}
+
+				const half = Math.floor(excerptLimit / 2);
+				const start = Math.max(0, index - half);
+				const end = Math.min(text.length, index + needle.length + half);
+				let excerpt = text.slice(start, end);
+				if (start > 0) {
+					excerpt = "..." + excerpt;
+				}
+				if (end < text.length) {
+					excerpt = excerpt + "...";
+				}
+
+				matches.push({ index, excerpt });
+				lastIndex = index + needle.length;
+			}
+
+			return matches;
+		};
+
+		const shouldUseWorker = options.useWorker && typeof Worker !== "undefined";
+		const worker = shouldUseWorker ? (options.worker || this.createSearchWorker()) : undefined;
+		const createdWorker = shouldUseWorker && !options.worker;
+		let totalMatches = 0;
+
+		const searchInWorker = (content) => {
+			if (!worker) {
+				return Promise.resolve([]);
+			}
+
+			const id = Math.random().toString(36).slice(2);
+			return new Promise((resolve, reject) => {
+				const onMessage = (event) => {
+					const data = event && event.data;
+					if (!data || data.id !== id) {
+						return;
+					}
+					worker.removeEventListener("message", onMessage);
+					worker.removeEventListener("error", onError);
+					resolve(data.matches || []);
+				};
+
+				const onError = (event) => {
+					worker.removeEventListener("message", onMessage);
+					worker.removeEventListener("error", onError);
+					reject(event);
+				};
+
+				worker.addEventListener("message", onMessage);
+				worker.addEventListener("error", onError);
+
+				worker.postMessage({
+					id,
+					query,
+					content,
+					maxResultsPerSection,
+					excerptLimit
+				});
+			});
+		};
+
+		try {
+			for (let i = 0; i < sections.length; i += 1) {
+				const section = sections[i];
+				if (!section || !section.linear) {
+					continue;
+				}
+
+				if (signal && signal.aborted) {
+					throw {
+						name: "AbortError",
+						message: "Aborted"
+					};
+				}
+
+				const markup = await this.load(section.url, "text", undefined, undefined, signal ? { signal } : undefined);
+				const text = stripMarkup(markup);
+				const matches = worker ? await searchInWorker(text) : findMatches(text);
+
+				if (matches.length) {
+					let sectionMatches = matches;
+					if (totalMatches + sectionMatches.length > maxResults) {
+						sectionMatches = sectionMatches.slice(0, Math.max(0, maxResults - totalMatches));
+					}
+
+					results.push({
+						sectionIndex: section.index,
+						href: section.href,
+						matches: sectionMatches
+					});
+
+					totalMatches += sectionMatches.length;
+				}
+
+				if (onProgress) {
+					onProgress({
+						sectionIndex: section.index,
+						href: section.href,
+						processed: i + 1,
+						total,
+						results: results.length
+					});
+				}
+
+				if (totalMatches >= maxResults) {
+					break;
+				}
+			}
+
+			return results;
+		} finally {
+			if (createdWorker && worker) {
+				worker.terminate();
+			}
+		}
+	}
+
+	createSearchWorker() {
+		const source = `
+self.onmessage = function(event) {
+	var data = event && event.data;
+	if (!data) return;
+	var query = (data.query || "").toLowerCase();
+	var content = data.content || "";
+	var maxResultsPerSection = data.maxResultsPerSection || 50;
+	var excerptLimit = data.excerptLimit || 150;
+
+	if (!query) {
+		self.postMessage({
+			id: data.id,
+			matches: []
+		});
+		return;
+	}
+
+	var haystack = content.toLowerCase();
+	var matches = [];
+	var lastIndex = 0;
+	while (matches.length < maxResultsPerSection) {
+		var index = haystack.indexOf(query, lastIndex);
+		if (index === -1) break;
+
+		var half = Math.floor(excerptLimit / 2);
+		var start = Math.max(0, index - half);
+		var end = Math.min(content.length, index + query.length + half);
+		var excerpt = content.slice(start, end);
+		if (start > 0) excerpt = "..." + excerpt;
+		if (end < content.length) excerpt = excerpt + "...";
+		matches.push({ index: index, excerpt: excerpt });
+
+		lastIndex = index + query.length;
+	}
+
+	self.postMessage({
+		id: data.id,
+		matches: matches
+	});
+};
+`;
+
+		const blob = new Blob([source], { type: "application/javascript" });
+		const url = URL.createObjectURL(blob);
+		const worker = new Worker(url);
+		URL.revokeObjectURL(url);
+		return worker;
 	}
 
 	/**
@@ -786,6 +1279,8 @@ class Book {
 		this.isOpen = false;
 		this.isRendered = false;
 
+		this.performance && this.performance.reset();
+
 		this.spine && this.spine.destroy();
 		this.locations && this.locations.destroy();
 		this.pageList && this.pageList.destroy();
@@ -809,6 +1304,9 @@ class Book {
 		this.url = undefined;
 		this.path = undefined;
 		this.archived = false;
+		this.resourceResolver = undefined;
+		this.spineLoader = undefined;
+		this.performance = undefined;
 	}
 
 }

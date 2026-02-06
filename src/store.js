@@ -371,8 +371,11 @@ class Store {
 
 	destroy() {
 		var _URL = window.URL || window.webkitURL || window.mozURL;
-		for (let fromCache in this.urlCache) {
-			_URL.revokeObjectURL(fromCache);
+		for (let key in this.urlCache) {
+			const value = this.urlCache[key];
+			if (value && typeof value === "string" && value.indexOf("blob:") === 0) {
+				_URL.revokeObjectURL(value);
+			}
 		}
 		this.urlCache = {};
 		this.removeListeners();

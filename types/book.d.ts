@@ -18,15 +18,31 @@ import Container from "./container";
 import Packaging from "./packaging";
 import Store from "./store";
 
+export interface BookMetricsOptions {
+  enabled?: boolean,
+  maxEntries?: number,
+  now?: () => number
+}
+
 export interface BookOptions {
-  requestMethod?: (url: string, type: string, withCredentials: object, headers: object) => Promise<object>;
-  requestCredentials?: object,
-  requestHeaders?: object,
+  requestMethod?: (
+    url: string,
+    type?: string | null,
+    withCredentials?: boolean,
+    headers?: Record<string, string>,
+    options?: { signal?: AbortSignal }
+  ) => Promise<any>;
+  requestCredentials?: boolean,
+  requestHeaders?: Record<string, string>,
   encoding?: string,
   replacements?: string,
   canonical?: (path: string) => string,
   openAs?: string,
-  store?: string
+  store?: string,
+  metrics?: boolean | BookMetricsOptions,
+  prefetchDistance?: number,
+  maxLoadedSections?: number,
+  lazyResources?: boolean
 }
 
 export default class Book {
@@ -39,12 +55,12 @@ export default class Book {
     isOpen: boolean;
     loaded: {
       metadata: Promise<PackagingMetadataObject>,
-      spine: Promise<SpineItem[]>,
+      spine: Promise<Spine>,
       manifest: Promise<PackagingManifestObject>,
       cover: Promise<string>,
       navigation: Promise<Navigation>,
-      pageList: Promise<PageListItem[]>,
-      resources: Promise<string[]>,
+      pageList: Promise<PageList>,
+      resources: Promise<Resources>,
     }
     ready: Promise<void>;
     request: Function;
@@ -75,7 +91,44 @@ export default class Book {
 
     key(identifier?: string): string;
 
-    load(path: string): Promise<object>;
+    load(path: string, type?: string | null, withCredentials?: boolean, headers?: object, options?: { signal?: AbortSignal }): Promise<any>;
+
+    prefetch(target: Section | string | number, distance?: number | boolean): Promise<Array<any>>;
+
+    cancelPrefetch(): number | undefined;
+
+    pinSection(target: Section | string | number): void;
+
+    unpinSection(target: Section | string | number): void;
+
+    search(query: string, options?: {
+      signal?: AbortSignal,
+      maxResults?: number,
+      maxSeqEle?: number,
+      unload?: boolean,
+      onProgress?: (progress: { sectionIndex: number, href: string, processed: number, total: number, results: number }) => void
+    }): Promise<Array<{ sectionIndex: number, href: string, cfi: string, excerpt: string }>>;
+
+    searchText(query: string, options?: {
+      signal?: AbortSignal,
+      maxResults?: number,
+      maxResultsPerSection?: number,
+      excerptLimit?: number,
+      useWorker?: boolean,
+      worker?: Worker,
+      onProgress?: (progress: { sectionIndex: number, href: string, processed: number, total: number, results: number }) => void
+    }): Promise<Array<{ sectionIndex: number, href: string, matches: Array<{ index: number, excerpt: string }> }>>;
+
+    createSearchWorker(): Worker;
+
+    getPerformanceSnapshot(): {
+      enabled: boolean,
+      counters: object,
+      entries: Array<any>,
+      activeSpans: number
+    };
+
+    clearPerformanceMetrics(): void;
 
     loadNavigation(opf: XMLDocument): Promise<Navigation>;
 

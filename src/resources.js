@@ -4,6 +4,26 @@ import Url from "./utils/url";
 import mime from "./utils/mime";
 import Path from "./utils/path";
 import path from "path-webpack";
+import ResourceCache from "./core/resource-cache";
+
+const XLINK_NS = "http://www.w3.org/1999/xlink";
+
+async function replaceSeries(str, regex, asyncReplacer) {
+	let result = "";
+	let lastIndex = 0;
+	let match;
+
+	regex.lastIndex = 0;
+
+	while ((match = regex.exec(str)) !== null) {
+		result += str.slice(lastIndex, match.index);
+		result += await asyncReplacer.apply(null, match);
+		lastIndex = match.index + match[0].length;
+	}
+
+	result += str.slice(lastIndex);
+	return result;
+}
 
 /**
  * Handle Package Resources
@@ -20,8 +40,14 @@ class Resources {
 			replacements: (options && options.replacements) || "base64",
 			archive: (options && options.archive),
 			resolver: (options && options.resolver),
-			request: (options && options.request)
+			request: (options && options.request),
+			lazy: (options && options.lazy) || false,
+			performance: options && options.performance
 		};
+
+		this.resourceCache = new ResourceCache({
+			performance: this.settings.performance
+		});
 
 		this.process(manifest);
 	}
@@ -48,6 +74,7 @@ class Resources {
 
 		this.split();
 		this.splitUrls();
+		this.buildResolvedManifest();
 	}
 
 	/**
@@ -102,6 +129,23 @@ class Resources {
 
 	}
 
+	buildResolvedManifest() {
+		this.resolvedManifest = new Map();
+		if (!this.settings || typeof this.settings.resolver !== "function") {
+			return;
+		}
+
+		this.resources.forEach((item) => {
+			if (!item || !item.href) {
+				return;
+			}
+			const resolved = this.settings.resolver(item.href);
+			if (resolved) {
+				this.resolvedManifest.set(resolved, item);
+			}
+		});
+	}
+
 	/**
 	 * Create a url to a resource
 	 * @param {string} url
@@ -115,13 +159,9 @@ class Resources {
 			return this.settings.archive.createUrl(url, {"base64": (this.settings.replacements === "base64")});
 		} else {
 			if (this.settings.replacements === "base64") {
-				return this.settings.request(url, 'blob')
-					.then((blob) => {
-						return blob2base64(blob);
-					})
-					.then((blob) => {
-						return createBase64Url(blob, mimeType);
-					});
+				return this.settings.request(url, "blob").then((blob) => {
+					return blob2base64(blob);
+				});
 			} else {
 				return this.settings.request(url, 'blob').then((blob) => {
 					return createBlobUrl(blob, mimeType);
@@ -303,7 +343,295 @@ class Resources {
 		return substitute(content, relUrls, this.replacementUrls);
 	}
 
+	replace(output, section) {
+		if (!this.settings || !this.settings.lazy) {
+			section.output = output;
+			return Promise.resolve(output);
+		}
+
+		if (!output || !section) {
+			return Promise.resolve(output);
+		}
+
+		const baseUrl = section.url;
+		const parentKey = section._resourceParentKey || section.href || baseUrl;
+
+		if (!baseUrl || !parentKey) {
+			section.output = output;
+			return Promise.resolve(output);
+		}
+
+		return this.replaceMarkup(output, "application/xhtml+xml", baseUrl, parentKey, [baseUrl]).then((replaced) => {
+			section.output = replaced;
+			return replaced;
+		});
+	}
+
+	unload(parentKey) {
+		if (!this.resourceCache || !parentKey) {
+			return;
+		}
+		this.resourceCache.releaseParent(parentKey);
+	}
+
+	isExternalUrl(href) {
+		if (!href || typeof href !== "string") {
+			return true;
+		}
+
+		if (href.indexOf("#") === 0) {
+			return true;
+		}
+
+		return /^[a-z][a-z0-9+.-]*:/i.test(href);
+	}
+
+	resolveUrl(href, baseUrl) {
+		const resolved = new Url(href, baseUrl);
+		if (resolved.origin) {
+			return resolved.origin + resolved.Path.path;
+		}
+		return resolved.Path.path;
+	}
+
+	loadText(url) {
+		if (this.settings.archive) {
+			const response = this.settings.archive.getText(url);
+			if (!response) {
+				return Promise.reject(new Error("File not found in archive: " + url));
+			}
+			return response;
+		}
+
+		return this.settings.request(url, "text");
+	}
+
+	loadBlob(url, mimeType) {
+		if (this.settings.archive) {
+			const response = this.settings.archive.getBlob(url, mimeType);
+			if (!response) {
+				return Promise.reject(new Error("File not found in archive: " + url));
+			}
+			return response;
+		}
+
+		return this.settings.request(url, "blob");
+	}
+
+	createTextUrl(text, mediaType) {
+		if (this.settings.replacements === "base64") {
+			return blob2base64(new Blob([text], { type: mediaType }));
+		}
+
+		return Promise.resolve(createBlobUrl(text, mediaType));
+	}
+
+	createBinaryUrl(url, mediaType) {
+		if (this.settings.replacements === "base64") {
+			if (this.settings.archive) {
+				const response = this.settings.archive.getBase64(url, mediaType);
+				if (response) {
+					return response;
+				}
+			}
+
+			return this.loadBlob(url, mediaType).then((blob) => blob2base64(blob));
+		}
+
+		const _URL = window.URL || window.webkitURL || window.mozURL;
+		return this.loadBlob(url, mediaType).then((blob) => _URL.createObjectURL(blob));
+	}
+
+	isReplaceableType(mediaType) {
+		return (
+			mediaType === "text/css" ||
+			mediaType === "application/xhtml+xml" ||
+			mediaType === "text/html" ||
+			mediaType === "image/svg+xml"
+		);
+	}
+
+	loadHref(href, baseUrl, parentKey, parents) {
+		if (!href || typeof href !== "string") {
+			return Promise.resolve(href);
+		}
+
+		if (this.isExternalUrl(href)) {
+			return Promise.resolve(href);
+		}
+
+		const resolved = this.resolveUrl(href, baseUrl);
+		const item = this.resolvedManifest && this.resolvedManifest.get(resolved);
+		if (!item) {
+			return Promise.resolve(href);
+		}
+
+		if (parents && parents.indexOf(resolved) !== -1) {
+			return Promise.resolve(href);
+		}
+
+		return this.loadItem(resolved, item, parentKey, parents || []).catch(() => href);
+	}
+
+	loadItem(resolvedUrl, item, parentKey, parents) {
+		if (!this.resourceCache) {
+			return Promise.resolve(resolvedUrl);
+		}
+
+		return this.resourceCache.acquire(resolvedUrl, parentKey, () => {
+			return this.createItem(resolvedUrl, item, parents || []);
+		});
+	}
+
+	async createItem(resolvedUrl, item, parents) {
+		const mediaType = item && item.type ? item.type : mime.lookup(new Url(resolvedUrl).filename);
+		const nextParents = (parents || []).concat(resolvedUrl);
+
+		if (this.settings.lazy && this.isReplaceableType(mediaType)) {
+			const markup = await this.loadText(resolvedUrl);
+
+			if (mediaType === "text/css") {
+				const replaced = await this.replaceCSS(markup, resolvedUrl, resolvedUrl, nextParents);
+				return this.createTextUrl(replaced, mediaType);
+			}
+
+			const replaced = await this.replaceMarkup(markup, mediaType, resolvedUrl, resolvedUrl, nextParents);
+			return this.createTextUrl(replaced, mediaType);
+		}
+
+		return this.createBinaryUrl(resolvedUrl, mediaType);
+	}
+
+	async replaceMarkup(markup, mediaType, baseUrl, parentKey, parents) {
+		let doc = new DOMParser().parseFromString(markup, mediaType);
+
+		if (doc.querySelector("parsererror") && mediaType !== "text/html") {
+			doc = new DOMParser().parseFromString(markup, "text/html");
+		}
+
+		await this.replaceDocument(doc, baseUrl, parentKey, parents || []);
+
+		return new XMLSerializer().serializeToString(doc);
+	}
+
+	async replaceDocument(doc, baseUrl, parentKey, parents) {
+		const replaceAttribute = async (el, attr) => {
+			const value = el.getAttribute(attr);
+			const replaced = await this.loadHref(value, baseUrl, parentKey, parents);
+			if (replaced && replaced !== value) {
+				el.setAttribute(attr, replaced);
+			}
+		};
+
+		for (const el of Array.from(doc.querySelectorAll("link[href]"))) {
+			const rel = (el.getAttribute("rel") || "").toLowerCase();
+			if (rel.split(/\s+/).indexOf("stylesheet") === -1) {
+				continue;
+			}
+			await replaceAttribute(el, "href");
+		}
+
+		for (const el of Array.from(doc.querySelectorAll("[src]"))) {
+			await replaceAttribute(el, "src");
+		}
+
+		for (const el of Array.from(doc.querySelectorAll("[poster]"))) {
+			await replaceAttribute(el, "poster");
+		}
+
+		for (const el of Array.from(doc.querySelectorAll("object[data]"))) {
+			await replaceAttribute(el, "data");
+		}
+
+		for (const el of Array.from(doc.querySelectorAll("image[href], use[href]"))) {
+			await replaceAttribute(el, "href");
+		}
+
+		for (const el of Array.from(doc.querySelectorAll("[*|href]:not([href])"))) {
+			const value = el.getAttributeNS(XLINK_NS, "href");
+			const replaced = await this.loadHref(value, baseUrl, parentKey, parents);
+			if (replaced && replaced !== value) {
+				el.setAttributeNS(XLINK_NS, "href", replaced);
+			}
+		}
+
+		for (const el of Array.from(doc.querySelectorAll("[srcset]"))) {
+			const value = el.getAttribute("srcset");
+			if (!value) {
+				continue;
+			}
+			const replaced = await this.replaceSrcset(value, baseUrl, parentKey, parents);
+			if (replaced && replaced !== value) {
+				el.setAttribute("srcset", replaced);
+			}
+		}
+
+		for (const el of Array.from(doc.querySelectorAll("style"))) {
+			if (!el.textContent) {
+				continue;
+			}
+			el.textContent = await this.replaceCSS(el.textContent, baseUrl, parentKey, parents);
+		}
+
+		for (const el of Array.from(doc.querySelectorAll("[style]"))) {
+			const value = el.getAttribute("style");
+			if (!value) {
+				continue;
+			}
+			el.setAttribute("style", await this.replaceCSS(value, baseUrl, parentKey, parents));
+		}
+	}
+
+	async replaceSrcset(srcset, baseUrl, parentKey, parents) {
+		const parts = srcset
+			.split(",")
+			.map((part) => part.trim())
+			.filter(Boolean);
+
+		const rewritten = [];
+
+		for (const part of parts) {
+			const segments = part.split(/\s+/).filter(Boolean);
+			const url = segments.shift();
+			if (!url) {
+				continue;
+			}
+			const replacedUrl = await this.loadHref(url, baseUrl, parentKey, parents);
+			rewritten.push([replacedUrl].concat(segments).join(" "));
+		}
+
+		return rewritten.join(", ");
+	}
+
+	async replaceCSS(str, baseUrl, parentKey, parents) {
+		const replacedUrls = await replaceSeries(
+			str,
+			/url\(\s*["']?([^'"\n]*?)\s*["']?\s*\)/gi,
+			(_, url) => this.loadHref(url, baseUrl, parentKey, parents).then((nextUrl) => `url("${nextUrl}")`)
+		);
+
+		return replaceSeries(
+			replacedUrls,
+			/@import\s*["']([^"'\n]*?)["']/gi,
+			(_, url) => this.loadHref(url, baseUrl, parentKey, parents).then((nextUrl) => `@import "${nextUrl}"`)
+		);
+	}
+
 	destroy() {
+		this.resourceCache && this.resourceCache.clear();
+		this.resourceCache = undefined;
+		this.resolvedManifest = undefined;
+		if (this.replacementUrls && this.replacementUrls.length) {
+			this.replacementUrls.forEach((url) => {
+				if (url && typeof url === "string" && url.indexOf("blob:") === 0) {
+					try {
+						URL.revokeObjectURL(url);
+					} catch (e) {
+						// NOOP
+					}
+				}
+			});
+		}
 		this.settings = undefined;
 		this.manifest = undefined;
 		this.resources = undefined;

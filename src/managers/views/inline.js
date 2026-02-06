@@ -113,6 +113,10 @@ class InlineView {
 		// Fit to size of the container, apply padding
 		this.size();
 
+		if (this.section) {
+			this.section._resourceParentKey = this.id;
+		}
+
 		// Render Chain
 		return this.section.render(request)
 			.then(function(contents){

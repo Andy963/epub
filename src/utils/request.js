@@ -1,19 +1,23 @@
 import {defer, isXml, parse} from "./core";
 import Path from "./path";
 
-function request(url, type, withCredentials, headers) {
+function request(url, type, withCredentials, headers, options) {
 	var supportsURL = (typeof window != "undefined") ? window.URL : false; // TODO: fallback for url if window isn't defined
 	var BLOB_RESPONSE = supportsURL ? "blob" : "arraybuffer";
 
 	var deferred = new defer();
 
 	var xhr = new XMLHttpRequest();
+	var abortSignal = options && options.signal;
+	var abortListener = undefined;
+	var aborted = false;
 
 	//-- Check from PDF.js:
 	//   https://github.com/mozilla/pdf.js/blob/master/web/compatibility.js
 	var xhrPrototype = XMLHttpRequest.prototype;
 
 	var header;
+	headers = headers || {};
 
 	if (!("overrideMimeType" in xhrPrototype)) {
 		// IE10 might have response, but not overrideMimeType
@@ -28,6 +32,32 @@ function request(url, type, withCredentials, headers) {
 
 	xhr.onreadystatechange = handler;
 	xhr.onerror = err;
+
+	if (abortSignal) {
+		if (abortSignal.aborted) {
+			aborted = true;
+			deferred.reject({
+				name: "AbortError",
+				message: "Aborted"
+			});
+			return deferred.promise;
+		}
+
+		abortListener = () => {
+			aborted = true;
+			try {
+				xhr.abort();
+			} catch (e) {
+				// NOOP
+			}
+			deferred.reject({
+				name: "AbortError",
+				message: "Aborted"
+			});
+		};
+
+		abortSignal.addEventListener("abort", abortListener, { once: true });
+	}
 
 	xhr.open("GET", url, true);
 
@@ -69,11 +99,20 @@ function request(url, type, withCredentials, headers) {
 	xhr.send();
 
 	function err(e) {
+		if (aborted) {
+			return;
+		}
+		cleanupAbortListener();
 		deferred.reject(e);
 	}
 
 	function handler() {
 		if (this.readyState === XMLHttpRequest.DONE) {
+			if (aborted) {
+				cleanupAbortListener();
+				return;
+			}
+			cleanupAbortListener();
 			var responseXML = false;
 
 			if(this.responseType === "" || this.responseType === "document") {
@@ -142,6 +181,18 @@ function request(url, type, withCredentials, headers) {
 
 			}
 		}
+	}
+
+	function cleanupAbortListener() {
+		if (!abortSignal || !abortListener) {
+			return;
+		}
+		try {
+			abortSignal.removeEventListener("abort", abortListener);
+		} catch (e) {
+			// NOOP
+		}
+		abortListener = undefined;
 	}
 
 	return deferred.promise;

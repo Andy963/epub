@@ -2,10 +2,15 @@ import Spine from "./spine";
 import Section from "./section";
 import EpubCFI from "./epubcfi";
 
+export interface LocationsGenerateOptions {
+  useWorker?: boolean,
+  worker?: any
+}
+
 export default class Locations {
   constructor(spine: Spine, request?: Function, pause?: number);
 
-  generate(chars: number): Promise<Array<string>>;
+  generate(chars: number, options?: LocationsGenerateOptions): Promise<Array<string>>;
 
   process(section: Section): Promise<Array<string>>;
 

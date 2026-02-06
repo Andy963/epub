@@ -27,7 +27,8 @@ export interface RenditionOptions {
   snap?: boolean | object,
   defaultDirection?: string,
   allowScriptedContent?: boolean,
-  allowPopups?: boolean
+  allowPopups?: boolean,
+  prefetch?: boolean | number
 }
 
 export interface DisplayedLocation {

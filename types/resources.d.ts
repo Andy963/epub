@@ -6,7 +6,9 @@ export default class Resources {
     replacements?: string,
     archive?: Archive,
     resolver?: Function,
-    request?: Function
+    request?: Function,
+    lazy?: boolean,
+    performance?: any
   });
 
   process(manifest: PackagingManifestObject): void;
@@ -20,6 +22,10 @@ export default class Resources {
   get(path: string): string;
 
   substitute(content: string, url?: string): string;
+
+  replace(output: string, section: any): Promise<string>;
+
+  unload(parentKey: string): void;
 
   destroy(): void;
 
