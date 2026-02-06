@@ -444,7 +444,7 @@ class Rendition {
 				this.book.pinSection(view.section);
 			}
 
-			if (this.book && this.settings.prefetch) {
+			if (this.book && this.settings.prefetch && typeof this.book.prefetch === "function") {
 				this.book.prefetch(view.section, this.settings.prefetch).catch(() => {
 					return;
 				});
