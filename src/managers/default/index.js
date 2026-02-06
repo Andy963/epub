@@ -194,6 +194,33 @@ class DefaultViewManager {
 	}
 
 	onResized(e) {
+		// Resize can race with the initial display / render pipeline since it is
+		// triggered from a window event (outside the rendition queue). Queue the
+		// actual resize work behind the rendition queue to keep view lifecycle
+		// operations ordered and avoid ending up with cleared views and no
+		// location to re-display (#1384).
+		if (this.renditionQueue) {
+			this._resizeNeeded = true;
+
+			if (this._resizeScheduled) {
+				return;
+			}
+
+			this._resizeScheduled = true;
+			this.renditionQueue.enqueue(() => {
+				this._resizeScheduled = false;
+
+				if (!this._resizeNeeded) {
+					return;
+				}
+
+				this._resizeNeeded = false;
+				this.resize();
+			});
+
+			return;
+		}
+
 		this.resize();
 	}
 

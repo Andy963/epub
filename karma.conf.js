@@ -17,6 +17,15 @@ module.exports = function(config) {
     // available frameworks: https://npmjs.org/browse/keyword/karma-adapter
     frameworks: ['mocha'],
 
+    // Explicitly list plugins to avoid loading unused / broken launchers
+    plugins: [
+      'karma-mocha',
+      'karma-mocha-reporter',
+      'karma-chrome-launcher',
+      'karma-webpack',
+      'karma-sourcemap-loader',
+    ],
+
 
     // list of files / patterns to load in the browser
     files: [

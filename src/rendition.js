@@ -142,6 +142,8 @@ class Rendition {
 		 * @memberof Rendition
 		 */
 		this.location = undefined;
+		this._hasRequestedDisplay = false;
+		this._lastRequestedTarget = undefined;
 
 		// Hold queue until book is opened
 		this.q.enqueue(this.book.opened);
@@ -332,6 +334,9 @@ class Rendition {
 			target = this.book.locations.cfiFromPercentage(parseFloat(target));
 		}
 
+		this._hasRequestedDisplay = true;
+		this._lastRequestedTarget = target;
+
 		section = this.book.spine.get(target);
 
 		if(!section){
@@ -476,8 +481,21 @@ class Rendition {
 			height: size.height
 		}, epubcfi);
 
-		if (this.location && this.location.start) {
-			this.display(epubcfi || this.location.start.cfi);
+		let hasTarget = false;
+		let target = epubcfi;
+
+		if (typeof target !== "undefined") {
+			hasTarget = true;
+		} else if (this.location && this.location.start) {
+			target = this.location.start.cfi;
+			hasTarget = true;
+		} else if (this._hasRequestedDisplay) {
+			target = this._lastRequestedTarget;
+			hasTarget = true;
+		}
+
+		if (hasTarget) {
+			this.display(target);
 		}
 
 	}
