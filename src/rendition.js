@@ -985,6 +985,10 @@ class Rendition {
 				"break-inside": "avoid",
 				"box-sizing": "border-box"
 			},
+			"figure" : {
+				"page-break-inside": "avoid",
+				"break-inside": "avoid"
+			},
 			"svg" : {
 				"max-width": (this._layout.columnWidth ? (this._layout.columnWidth - horizontalPadding) + "px" : "100%") + "!important",
 				"max-height": height + "px" + "!important",
