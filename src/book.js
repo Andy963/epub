@@ -549,6 +549,57 @@ class Book {
 			.then((xml) => {
 				this.navigation = new Navigation(xml);
 				this.pageList = new PageList(xml);
+				if (navPath) {
+					const baseUrl = new URL(navPath.replace(/^\/+/, ""), "http://example.com/").href;
+
+					const resolveNavHref = (href) => {
+						if (!href || typeof href !== "string") {
+							return href;
+						}
+
+						// Skip in-document links and absolute URLs
+						if (href.indexOf("#") === 0 || href.indexOf("://") > -1) {
+							return href;
+						}
+
+						try {
+							const url = new URL(href, baseUrl);
+							const pathname = url.pathname.replace(/^\/+/, "");
+							return pathname + (url.search || "") + (url.hash || "");
+						} catch (e) {
+							return href;
+						}
+					};
+
+					const normalizeNavItems = (items) => {
+						if (!Array.isArray(items)) {
+							return;
+						}
+
+						items.forEach((item) => {
+							if (!item) {
+								return;
+							}
+
+							if (item.href) {
+								item.href = resolveNavHref(item.href);
+							}
+
+							if (item.subitems && item.subitems.length) {
+								normalizeNavItems(item.subitems);
+							}
+						});
+					};
+
+					normalizeNavItems(this.navigation.toc);
+					normalizeNavItems(this.navigation.landmarks);
+
+					// Rebuild navigation lookup maps after normalization
+					this.navigation.tocByHref = {};
+					this.navigation.tocById = {};
+					this.navigation.length = 0;
+					this.navigation.unpack(this.navigation.toc);
+				}
 				return this.navigation;
 			});
 	}

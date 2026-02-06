@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="3.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="BookId">urn:uuid:12345678-1234-1234-1234-123456789012</dc:identifier>
+    <dc:title>Issue 1367 Fixture</dc:title>
+    <dc:language>en</dc:language>
+  </metadata>
+
+  <manifest>
+    <item id="nav" href="Text/toc.xhtml" media-type="application/xhtml+xml" properties="nav" />
+    <item id="chap1" href="Text/chapter.xhtml" media-type="application/xhtml+xml" />
+  </manifest>
+
+  <spine>
+    <itemref id="chapter_001" idref="chap1" />
+  </spine>
+</package>
+
