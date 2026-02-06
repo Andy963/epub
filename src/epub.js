@@ -4,6 +4,7 @@ import CFI from "./epubcfi";
 import Contents from "./contents";
 import * as utils from "./utils/core";
 import { EPUBJS_VERSION } from "./utils/constants";
+import PdfBook from "./pdf/book";
 
 import IframeView from "./managers/views/iframe";
 import DefaultViewManager from "./managers/default";
@@ -27,6 +28,10 @@ if (typeof(global) !== "undefined") {
 }
 
 ePub.Book = Book;
+ePub.PdfBook = PdfBook;
+ePub.pdf = function(url, options) {
+	return new PdfBook(url, options);
+};
 ePub.Rendition = Rendition;
 ePub.Contents = Contents;
 ePub.CFI = CFI;
