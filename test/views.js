@@ -111,3 +111,43 @@ describe("DefaultViewManager removed event", function () {
     ]);
   });
 });
+
+describe("DefaultViewManager target relocation", function () {
+  it("should realign pending target after view reflow (#558)", function () {
+    const target = "epubcfi(/6/8!/4/2/16,/1:10,/1:30)";
+    const offset = { left: 240, top: 0 };
+    const moved = [];
+    const emitted = [];
+
+    const manager = {
+      _pendingDisplayTarget: {
+        sectionIndex: 3,
+        target,
+        remaining: 1,
+      },
+      moveTo(nextOffset, width) {
+        moved.push({ offset: nextOffset, width });
+      },
+      emit(type, payload) {
+        emitted.push({ type, payload });
+      },
+    };
+
+    const view = {
+      section: { index: 3 },
+      locationOf(value) {
+        assert.equal(value, target);
+        return offset;
+      },
+      width() {
+        return 320;
+      },
+    };
+
+    DefaultViewManager.prototype.afterResized.call(manager, view);
+
+    assert.deepEqual(moved, [{ offset, width: 320 }]);
+    assert.equal(manager._pendingDisplayTarget, undefined);
+    assert.deepEqual(emitted, [{ type: EVENTS.MANAGERS.RESIZE, payload: view.section }]);
+  });
+});

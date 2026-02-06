@@ -313,6 +313,7 @@ class DefaultViewManager {
 			}
 
 			displaying.resolve();
+			this._pendingDisplayTarget = undefined;
 			return displayed;
 		}
 
@@ -347,6 +348,16 @@ class DefaultViewManager {
 				displaying.resolve();
 
 			}.bind(this));
+
+		if (target) {
+			this._pendingDisplayTarget = {
+				sectionIndex: section.index,
+				target,
+				remaining: 1
+			};
+		} else {
+			this._pendingDisplayTarget = undefined;
+		}
 		// .then(function(){
 		// 	return this.hooks.display.trigger(view);
 		// }.bind(this))
@@ -361,6 +372,25 @@ class DefaultViewManager {
 	}
 
 	afterResized(view){
+		if (this._pendingDisplayTarget &&
+				view &&
+				view.section &&
+				view.section.index === this._pendingDisplayTarget.sectionIndex &&
+				typeof view.locationOf === "function") {
+			let offset = view.locationOf(this._pendingDisplayTarget.target);
+			let width = typeof view.width === "function" ? view.width() : undefined;
+
+			if (offset) {
+				this.moveTo(offset, width);
+			}
+
+			if (this._pendingDisplayTarget.remaining > 1) {
+				this._pendingDisplayTarget.remaining -= 1;
+			} else {
+				this._pendingDisplayTarget = undefined;
+			}
+		}
+
 		this.emit(EVENTS.MANAGERS.RESIZE, view.section);
 	}
 
