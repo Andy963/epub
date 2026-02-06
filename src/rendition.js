@@ -330,8 +330,15 @@ class Rendition {
 		this.displaying = displaying;
 
 		// Check if this is a book percentage
-		if (this.book.locations.length() && isFloat(target)) {
-			target = this.book.locations.cfiFromPercentage(parseFloat(target));
+		if (this.book.locations.length() && !isCfiString) {
+			if (typeof target === "string" && target.indexOf("%") === target.length - 1) {
+				let percentValue = parseFloat(target);
+				if (!isNaN(percentValue)) {
+					target = this.book.locations.cfiFromPercentage(percentValue / 100);
+				}
+			} else if (isFloat(target)) {
+				target = this.book.locations.cfiFromPercentage(parseFloat(target));
+			}
 		}
 
 		this._hasRequestedDisplay = true;
