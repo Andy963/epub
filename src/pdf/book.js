@@ -30,6 +30,9 @@ class PdfBook {
 			httpHeaders: undefined,
 			textLayer: true,
 			annotationLayer: true,
+			prefetchDistance: 0,
+			maxCachedPages: 6,
+			maxCachedTextPages: 50,
 			renderScale: 1,
 		});
 
@@ -91,6 +94,13 @@ class PdfBook {
 		this.locations = this.createLocationsStub();
 		this.pageList = this.createPageListStub();
 
+		const maxCachedPages =
+			typeof this.settings.maxCachedPages === "number" &&
+			isFinite(this.settings.maxCachedPages) &&
+			this.settings.maxCachedPages > 0
+				? Math.floor(this.settings.maxCachedPages)
+				: 0;
+
 		this.pageCache = new ResourceCache({
 			revoke: (value) => {
 				if (!value || typeof value !== "object") {
@@ -101,6 +111,8 @@ class PdfBook {
 					URL.revokeObjectURL(url);
 				}
 			},
+			retain: maxCachedPages > 0,
+			maxEntries: maxCachedPages,
 		});
 
 		this.resources = {
@@ -108,6 +120,10 @@ class PdfBook {
 		};
 
 		this.pageTextCache = new Map();
+
+		this.prefetchVersion = 0;
+		this.prefetchController = undefined;
+		this.prefetchParentKey = undefined;
 
 		this.rendition = undefined;
 		this.navigation = undefined;
@@ -380,7 +396,18 @@ class PdfBook {
 
 	createPageListStub() {
 		return {
-			pageFromCfi: () => -1,
+			pageFromCfi: (cfi) => {
+				try {
+					const parsed = new EpubCFI(cfi);
+					const index = parsed && typeof parsed.spinePos === "number" ? parsed.spinePos : NaN;
+					if (isNaN(index)) {
+						return -1;
+					}
+					return index + 1;
+				} catch (e) {
+					return -1;
+				}
+			},
 		};
 	}
 
@@ -393,9 +420,158 @@ class PdfBook {
 	}
 
 	renderTo(element, options) {
-		this.rendition = new Rendition(this, options);
+		const renditionOptions = extend({}, options || {});
+		if (
+			typeof renditionOptions.prefetch === "undefined" &&
+			typeof this.settings.prefetchDistance === "number" &&
+			this.settings.prefetchDistance > 0
+		) {
+			renditionOptions.prefetch = Math.floor(this.settings.prefetchDistance);
+		}
+
+		this.rendition = new Rendition(this, renditionOptions);
 		this.rendition.attachTo(element);
 		return this.rendition;
+	}
+
+	cancelPrefetch() {
+		const baseVersion =
+			typeof this.prefetchVersion === "number" && isFinite(this.prefetchVersion)
+				? this.prefetchVersion
+				: 0;
+		this.prefetchVersion = baseVersion + 1;
+		if (this.prefetchController) {
+			try {
+				this.prefetchController.abort();
+			} catch (e) {
+				// NOOP
+			}
+			this.prefetchController = undefined;
+		}
+
+		if (this.prefetchParentKey && this.pageCache) {
+			try {
+				this.pageCache.releaseParent(this.prefetchParentKey);
+			} catch (e) {
+				// NOOP
+			}
+		}
+		this.prefetchParentKey = undefined;
+
+		return this.prefetchVersion;
+	}
+
+	prefetch(section, distance) {
+		if (!section) {
+			return Promise.resolve([]);
+		}
+
+		const resolvedDistance =
+			typeof distance === "number" && distance > 0
+				? Math.floor(distance)
+				: typeof this.settings.prefetchDistance === "number" &&
+					  this.settings.prefetchDistance > 0
+					? Math.floor(this.settings.prefetchDistance)
+					: 0;
+
+		if (!resolvedDistance) {
+			return Promise.resolve([]);
+		}
+
+		const candidates = this.collectPrefetchCandidates(section, resolvedDistance);
+		if (!candidates.length) {
+			return Promise.resolve([]);
+		}
+
+		if (!this.pageCache) {
+			return Promise.resolve([]);
+		}
+
+		const prefetchVersion = this.cancelPrefetch();
+		const controller =
+			typeof AbortController !== "undefined" ? new AbortController() : undefined;
+		this.prefetchController = controller;
+		const parentKey = `prefetch:${prefetchVersion}`;
+		this.prefetchParentKey = parentKey;
+
+		const loadSequentially = (index, results) => {
+			if (index >= candidates.length) {
+				return Promise.resolve(results);
+			}
+
+			if (prefetchVersion !== this.prefetchVersion) {
+				results.push(undefined);
+				return loadSequentially(index + 1, results);
+			}
+
+			const candidate = candidates[index];
+			const key = this.pageCacheKey(candidate.pageNumber);
+			return this.pageCache
+				.acquire(key, parentKey, () =>
+					this.renderPageData(
+						candidate.pageNumber,
+						controller ? { signal: controller.signal } : undefined,
+					),
+				)
+				.then((value) => {
+					results.push(prefetchVersion === this.prefetchVersion ? value : undefined);
+					return loadSequentially(index + 1, results);
+				})
+				.catch(() => {
+					results.push(undefined);
+					return loadSequentially(index + 1, results);
+				});
+		};
+
+		return loadSequentially(0, [])
+			.then((results) => {
+				if (this.prefetchParentKey === parentKey) {
+					this.prefetchParentKey = undefined;
+					try {
+						this.pageCache.releaseParent(parentKey);
+					} catch (e) {
+						// NOOP
+					}
+				}
+				if (this.prefetchController === controller) {
+					this.prefetchController = undefined;
+				}
+				return results;
+			})
+			.catch((error) => {
+				if (this.prefetchParentKey === parentKey) {
+					this.prefetchParentKey = undefined;
+					try {
+						this.pageCache.releaseParent(parentKey);
+					} catch (e) {
+						// NOOP
+					}
+				}
+				if (this.prefetchController === controller) {
+					this.prefetchController = undefined;
+				}
+				throw error;
+			});
+	}
+
+	collectPrefetchCandidates(section, distance) {
+		const candidates = [];
+		let next = section;
+		let prev = section;
+
+		for (let i = 0; i < distance; i += 1) {
+			next = next && typeof next.next === "function" ? next.next() : undefined;
+			if (next) {
+				candidates.push(next);
+			}
+
+			prev = prev && typeof prev.prev === "function" ? prev.prev() : undefined;
+			if (prev) {
+				candidates.push(prev);
+			}
+		}
+
+		return candidates;
 	}
 
 	async getPageText(pageNumber) {
@@ -403,12 +579,23 @@ class PdfBook {
 			throw new Error("PDF is not open");
 		}
 
+		const maxCachedTextPages =
+			typeof this.settings.maxCachedTextPages === "number" &&
+			isFinite(this.settings.maxCachedTextPages) &&
+			this.settings.maxCachedTextPages >= 0
+				? Math.floor(this.settings.maxCachedTextPages)
+				: 0;
+
 		const page =
 			typeof pageNumber === "number" && isFinite(pageNumber)
 				? Math.floor(pageNumber)
 				: 1;
 		const cached = this.pageTextCache.get(page);
 		if (cached) {
+			if (maxCachedTextPages > 0 && !cached.promise) {
+				this.pageTextCache.delete(page);
+				this.pageTextCache.set(page, cached);
+			}
 			return cached.promise || cached.text;
 		}
 
@@ -437,6 +624,10 @@ class PdfBook {
 
 				entry.text = text;
 				entry.promise = undefined;
+
+				if (maxCachedTextPages <= 0) {
+					this.pageTextCache.delete(page);
+				}
 				return text;
 			})
 			.catch((error) => {
@@ -445,6 +636,26 @@ class PdfBook {
 			});
 
 		this.pageTextCache.set(page, entry);
+
+		if (maxCachedTextPages > 0) {
+			let guard = 0;
+			while (this.pageTextCache.size > maxCachedTextPages && guard < 10000) {
+				guard += 1;
+				const oldest = this.pageTextCache.keys().next();
+				if (oldest.done) {
+					break;
+				}
+				const oldestKey = oldest.value;
+				const oldestEntry = this.pageTextCache.get(oldestKey);
+				if (oldestEntry && oldestEntry.promise) {
+					this.pageTextCache.delete(oldestKey);
+					this.pageTextCache.set(oldestKey, oldestEntry);
+					continue;
+				}
+				this.pageTextCache.delete(oldestKey);
+			}
+		}
+
 		return entry.promise;
 	}
 
@@ -764,7 +975,15 @@ class PdfBook {
 		return `page:${page}|scale:${baseScale}|${textLayer}|${annotationLayer}`;
 	}
 
-	async renderPageData(pageNumber) {
+	async renderPageData(pageNumber, options) {
+		const signal = options && options.signal;
+		if (signal && signal.aborted) {
+			throw {
+				name: "AbortError",
+				message: "Aborted",
+			};
+		}
+
 		const pageIndex =
 			typeof pageNumber === "number" && isFinite(pageNumber)
 				? Math.floor(pageNumber)
@@ -791,10 +1010,53 @@ class PdfBook {
 			throw new Error("CanvasRenderingContext2D is not available");
 		}
 
-		await page.render({
+		const renderTask = page.render({
 			canvasContext: ctx,
 			viewport,
-		}).promise;
+		});
+
+		let aborted = false;
+		const onAbort = () => {
+			aborted = true;
+			try {
+				renderTask.cancel();
+			} catch (e) {
+				// NOOP
+			}
+		};
+
+		if (signal) {
+			if (signal.aborted) {
+				onAbort();
+			} else {
+				signal.addEventListener("abort", onAbort, { once: true });
+			}
+		}
+
+		try {
+			await renderTask.promise;
+		} catch (error) {
+			if (
+				aborted ||
+				(error &&
+					typeof error === "object" &&
+					error.name === "RenderingCancelledException")
+			) {
+				throw {
+					name: "AbortError",
+					message: "Aborted",
+				};
+			}
+			throw error;
+		} finally {
+			if (signal) {
+				try {
+					signal.removeEventListener("abort", onAbort);
+				} catch (e) {
+					// NOOP
+				}
+			}
+		}
 
 		const blob = await new Promise((resolve, reject) => {
 			canvas.toBlob((result) => {
@@ -808,12 +1070,37 @@ class PdfBook {
 
 		const url = URL.createObjectURL(blob);
 
+		if (signal && signal.aborted) {
+			URL.revokeObjectURL(url);
+			throw {
+				name: "AbortError",
+				message: "Aborted",
+			};
+		}
+
 		let textLayer = "";
 		if (this.settings.textLayer) {
 			try {
+				if (signal && signal.aborted) {
+					URL.revokeObjectURL(url);
+					throw {
+						name: "AbortError",
+						message: "Aborted",
+					};
+				}
 				const textContent = await page.getTextContent();
+				if (signal && signal.aborted) {
+					URL.revokeObjectURL(url);
+					throw {
+						name: "AbortError",
+						message: "Aborted",
+					};
+				}
 				textLayer = this.buildTextLayerHtml(textContent, cssViewport);
 			} catch (e) {
+				if (e && typeof e === "object" && e.name === "AbortError") {
+					throw e;
+				}
 				textLayer = "";
 			}
 		}
@@ -821,12 +1108,29 @@ class PdfBook {
 		let annotationLayer = "";
 		if (this.settings.annotationLayer) {
 			try {
+				if (signal && signal.aborted) {
+					URL.revokeObjectURL(url);
+					throw {
+						name: "AbortError",
+						message: "Aborted",
+					};
+				}
 				const annotations = await page.getAnnotations({ intent: "display" });
+				if (signal && signal.aborted) {
+					URL.revokeObjectURL(url);
+					throw {
+						name: "AbortError",
+						message: "Aborted",
+					};
+				}
 				annotationLayer = await this.buildAnnotationLayerHtml(
 					annotations,
 					cssViewport,
 				);
 			} catch (e) {
+				if (e && typeof e === "object" && e.name === "AbortError") {
+					throw e;
+				}
 				annotationLayer = "";
 			}
 		}
@@ -992,6 +1296,15 @@ class PdfBook {
 
 		this.isOpen = false;
 		this.isPdf = false;
+
+		try {
+			this.cancelPrefetch();
+		} catch (e) {
+			// NOOP
+		}
+		this.prefetchVersion = undefined;
+		this.prefetchController = undefined;
+		this.prefetchParentKey = undefined;
 
 		this.pageCache && this.pageCache.clear();
 		this.pageCache = undefined;

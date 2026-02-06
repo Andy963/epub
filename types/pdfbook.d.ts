@@ -10,6 +10,9 @@ export interface PdfBookOptions {
   httpHeaders?: Record<string, string>,
   textLayer?: boolean,
   annotationLayer?: boolean,
+  prefetchDistance?: number,
+  maxCachedPages?: number,
+  maxCachedTextPages?: number,
   renderScale?: number
 }
 
@@ -42,6 +45,8 @@ export default class PdfBook {
 
   open(input: string | ArrayBuffer | Blob): Promise<PdfBook>;
   section(target: string | number): any;
+  cancelPrefetch(): number;
+  prefetch(section: any, distance?: number): Promise<any[]>;
   search(query: string, options?: {
     signal?: AbortSignal,
     maxResults?: number,

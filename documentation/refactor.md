@@ -88,9 +88,17 @@ const pdf = ePub.pdf("/path/to/file.pdf", {
   workerSrc: "/pdf.worker.js",
   renderScale: 1,
   textLayer: true,
-  annotationLayer: true
+  annotationLayer: true,
+
+  // optional: warm neighboring pages after display
+  prefetchDistance: 2,
+
+  // optional: bound memory for cached render outputs / extracted text
+  maxCachedPages: 6,
+  maxCachedTextPages: 50
 });
 
+// rendition.prefetch defaults from PdfBookOptions.prefetchDistance
 const rendition = pdf.renderTo("viewer");
 await pdf.opened;
 await rendition.display(0);
