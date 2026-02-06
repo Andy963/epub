@@ -78,13 +78,17 @@ const fastResults = await book.searchText("alice", {
 
 提供 `PdfBook` 与 `ePub.pdf()` 的实验性入口；需要用户在运行环境中提供 `pdfjsLib`（例如通过单独加载 PDF.js）。
 
+当前默认启用 `textLayer`（可选中复制）与 `annotationLayer`（可点击链接）。`rendition.display(n)` 中 `n` 为 **0-based page index**；如需按百分比跳转请使用 `\"50%\"` 或 `0.5` 这种小数。
+
 ```js
 import ePub from "epubjs";
 
 // globalThis.pdfjsLib must be available
 const pdf = ePub.pdf("/path/to/file.pdf", {
   workerSrc: "/pdf.worker.js",
-  renderScale: 1
+  renderScale: 1,
+  textLayer: true,
+  annotationLayer: true
 });
 
 const rendition = pdf.renderTo("viewer");
@@ -92,3 +96,12 @@ await pdf.opened;
 await rendition.display(0);
 ```
 
+PDF 目录（outline）与搜索：
+
+```js
+const nav = await pdf.loaded.navigation;
+console.log(nav.toc);
+
+const results = await pdf.searchText("alice", { maxResults: 20 });
+console.log(results);
+```
