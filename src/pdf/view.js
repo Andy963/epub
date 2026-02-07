@@ -85,7 +85,10 @@ class PdfView extends IframeView {
 
 		const key =
 			typeof book.pageCacheKey === "function"
-				? book.pageCacheKey(pageNumber, renderScale)
+				? book.pageCacheKey(pageNumber, renderScale, {
+						textLayer: false,
+						annotationLayer: false,
+					})
 				: undefined;
 		if (!key || key === this._pdfRenderKey) {
 			return;
@@ -112,7 +115,7 @@ class PdfView extends IframeView {
 				throw new Error("PdfBook.renderPageData is required");
 			}
 
-			const options = { renderScale };
+			const options = { renderScale, textLayer: false, annotationLayer: false };
 			if (controller) {
 				options.signal = controller.signal;
 			}

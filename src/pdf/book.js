@@ -1368,7 +1368,7 @@ class PdfBook {
 		].join("");
 	}
 
-	pageCacheKey(pageNumber, renderScale) {
+	pageCacheKey(pageNumber, renderScale, options) {
 		const page =
 			typeof pageNumber === "number" && isFinite(pageNumber)
 				? Math.floor(pageNumber)
@@ -1382,8 +1382,18 @@ class PdfBook {
 					? this.settings.renderScale
 					: 1;
 		const scale = Math.round(resolvedScale * 1000) / 1000;
-		const textLayer = this.settings.textLayer ? "text:1" : "text:0";
-		const annotationLayer = this.settings.annotationLayer ? "ann:1" : "ann:0";
+
+		const includeTextLayer =
+			options && typeof options.textLayer === "boolean"
+				? options.textLayer
+				: this.settings.textLayer;
+		const includeAnnotationLayer =
+			options && typeof options.annotationLayer === "boolean"
+				? options.annotationLayer
+				: this.settings.annotationLayer;
+
+		const textLayer = includeTextLayer ? "text:1" : "text:0";
+		const annotationLayer = includeAnnotationLayer ? "ann:1" : "ann:0";
 		return `page:${page}|render:${scale}|${textLayer}|${annotationLayer}`;
 	}
 
@@ -1412,6 +1422,14 @@ class PdfBook {
 					  this.settings.renderScale > 0
 					? this.settings.renderScale
 					: 1;
+		const includeTextLayer =
+			options && typeof options.textLayer === "boolean"
+				? options.textLayer
+				: this.settings.textLayer;
+		const includeAnnotationLayer =
+			options && typeof options.annotationLayer === "boolean"
+				? options.annotationLayer
+				: this.settings.annotationLayer;
 		const deviceScale =
 			typeof window !== "undefined" && window.devicePixelRatio
 				? window.devicePixelRatio
@@ -1497,7 +1515,7 @@ class PdfBook {
 		}
 
 		let textLayer = "";
-		if (this.settings.textLayer) {
+		if (includeTextLayer) {
 			try {
 				if (signal && signal.aborted) {
 					URL.revokeObjectURL(url);
@@ -1524,7 +1542,7 @@ class PdfBook {
 		}
 
 		let annotationLayer = "";
-		if (this.settings.annotationLayer) {
+		if (includeAnnotationLayer) {
 			try {
 				if (signal && signal.aborted) {
 					URL.revokeObjectURL(url);
