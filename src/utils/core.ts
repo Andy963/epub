@@ -122,9 +122,9 @@ export function prefixed(unprefixed) {
  * @returns {object}
  * @memberof Core
  */
-export function defaults(obj) {
-	for (var i = 1, length = arguments.length; i < length; i++) {
-		var source = arguments[i];
+export function defaults(obj: any, ...sources: any[]): any {
+	for (var i = 0, length = sources.length; i < length; i++) {
+		var source = sources[i];
 		for (var prop in source) {
 			if (obj[prop] === void 0) obj[prop] = source[prop];
 		}

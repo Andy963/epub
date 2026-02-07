@@ -22,7 +22,9 @@ const TEXT_NODE = 3;
 	* @param {number} sectionIndex Index in Spine of Conntent's Section
 	*/
 class Contents {
-	constructor(doc, content, cfiBase, sectionIndex) {
+	[key: string]: any;
+
+	constructor(doc: Document, content?: HTMLElement, cfiBase?: string, sectionIndex?: number) {
 		// Blank Cfi for Parsing
 		this.epubcfi = new EpubCFI();
 
@@ -52,12 +54,12 @@ class Contents {
 		return DOM_EVENTS;
 	}
 
-	/**
-		* Get or Set width
-		* @param {number} [w]
-		* @returns {number} width
-		*/
-	width(w) {
+		/**
+			* Get or Set width
+			* @param {number} [w]
+			* @returns {number} width
+			*/
+	width(w?) {
 		// var frame = this.documentElement;
 		var frame = this.content;
 
@@ -75,12 +77,12 @@ class Contents {
 
 	}
 
-	/**
-		* Get or Set height
-		* @param {number} [h]
-		* @returns {number} height
-		*/
-	height(h) {
+		/**
+			* Get or Set height
+			* @param {number} [h]
+			* @returns {number} height
+			*/
+	height(h?) {
 		// var frame = this.documentElement;
 		var frame = this.content;
 
@@ -97,12 +99,12 @@ class Contents {
 
 	}
 
-	/**
-		* Get or Set width of the contents
-		* @param {number} [w]
-		* @returns {number} width
-		*/
-	contentWidth(w) {
+		/**
+			* Get or Set width of the contents
+			* @param {number} [w]
+			* @returns {number} width
+			*/
+	contentWidth(w?) {
 
 		var content = this.content || this.document.body;
 
@@ -119,12 +121,12 @@ class Contents {
 
 	}
 
-	/**
-		* Get or Set height of the contents
-		* @param {number} [h]
-		* @returns {number} height
-		*/
-	contentHeight(h) {
+		/**
+			* Get or Set height of the contents
+			* @param {number} [h]
+			* @returns {number} height
+			*/
+	contentHeight(h?) {
 
 		var content = this.content || this.document.body;
 
@@ -203,11 +205,11 @@ class Contents {
 		return height;
 	}
 
-	/**
-		* Set overflow css style of the contents
-		* @param {string} [overflow]
-		*/
-	overflow(overflow) {
+		/**
+			* Set overflow css style of the contents
+			* @param {string} [overflow]
+			*/
+	overflow(overflow?) {
 
 		if (overflow) {
 			this.documentElement.style.overflow = overflow;
@@ -216,11 +218,11 @@ class Contents {
 		return this.window.getComputedStyle(this.documentElement)["overflow"];
 	}
 
-	/**
-		* Set overflowX css style of the documentElement
-		* @param {string} [overflow]
-		*/
-	overflowX(overflow) {
+		/**
+			* Set overflowX css style of the documentElement
+			* @param {string} [overflow]
+			*/
+	overflowX(overflow?) {
 
 		if (overflow) {
 			this.documentElement.style.overflowX = overflow;
@@ -229,11 +231,11 @@ class Contents {
 		return this.window.getComputedStyle(this.documentElement)["overflowX"];
 	}
 
-	/**
-		* Set overflowY css style of the documentElement
-		* @param {string} [overflow]
-		*/
-	overflowY(overflow) {
+		/**
+			* Set overflowY css style of the documentElement
+			* @param {string} [overflow]
+			*/
+	overflowY(overflow?) {
 
 		if (overflow) {
 			this.documentElement.style.overflowY = overflow;
@@ -242,13 +244,13 @@ class Contents {
 		return this.window.getComputedStyle(this.documentElement)["overflowY"];
 	}
 
-	/**
-		* Set Css styles on the contents element (typically Body)
-		* @param {string} property
-		* @param {string} value
-		* @param {boolean} [priority] set as "important"
-		*/
-	css(property, value, priority) {
+		/**
+			* Set Css styles on the contents element (typically Body)
+			* @param {string} property
+			* @param {string} value
+			* @param {boolean} [priority] set as "important"
+			*/
+	css(property, value?, priority?) {
 		var content = this.content || this.document.body;
 
 		if (value) {
@@ -270,7 +272,7 @@ class Contents {
 		* @param {string} [options.maximum]
 		* @param {string} [options.scalable]
 		*/
-	viewport(options) {
+	viewport(options?) {
 		var _width, _height, _scale, _minimum, _maximum, _scalable;
 		// var width, height, scale, minimum, maximum, scalable;
 		var $viewport = this.document.querySelector("meta[name='viewport']");
@@ -283,7 +285,7 @@ class Contents {
 			"scalable": undefined
 		};
 		var newContent = [];
-		var settings = {};
+		var settings: any = {};
 
 		/*
 		* check for the viewport size
@@ -597,7 +599,7 @@ class Contents {
 	 * @param {string} [ignoreClass] for the cfi
 	 * @returns { {left: Number, top: Number }
 	 */
-	locationOf(target, ignoreClass) {
+	locationOf(target, ignoreClass?) {
 		var position;
 		var targetPos = {"left": 0, "top": 0};
 
@@ -747,7 +749,7 @@ class Contents {
 	 * @param {string} serializedCss
 	 * @param {string} key If the key is the same, the CSS will be replaced instead of inserted
 	 */
-	addStylesheetCss(serializedCss, key) {
+	addStylesheetCss(serializedCss, key?) {
 		if(!this.document || !serializedCss) return false;
 
 		var styleEl;
@@ -764,7 +766,7 @@ class Contents {
 	 * @param {array | object} rules
 	 * @param {string} key If the key is the same, the CSS will be replaced instead of inserted
 	 */
-	addStylesheetRules(rules, key) {
+	addStylesheetRules(rules, key?) {
 		var styleSheet;
 		var styleEl;
 
@@ -995,7 +997,7 @@ class Contents {
 	 * @param {string} [ignoreClass]
 	 * @returns {Range} range
 	 */
-	range(_cfi, ignoreClass){
+	range(_cfi, ignoreClass?){
 		var cfi = new EpubCFI(_cfi);
 		return cfi.toRange(this.document, ignoreClass);
 	}
@@ -1006,7 +1008,7 @@ class Contents {
 	 * @param {string} [ignoreClass]
 	 * @returns {EpubCFI} cfi
 	 */
-	cfiFromRange(range, ignoreClass){
+	cfiFromRange(range, ignoreClass?){
 		return new EpubCFI(range, this.cfiBase, ignoreClass).toString();
 	}
 
@@ -1016,14 +1018,14 @@ class Contents {
 	 * @param {string} [ignoreClass]
 	 * @returns {EpubCFI} cfi
 	 */
-	cfiFromNode(node, ignoreClass){
+	cfiFromNode(node, ignoreClass?){
 		return new EpubCFI(node, this.cfiBase, ignoreClass).toString();
 	}
 
 	// TODO: find where this is used - remove?
-	map(layout){
+	map(layout, view){
 		var map = new Mapping(layout);
-		return map.section();
+		return map.section(view);
 	}
 
 	/**
@@ -1032,7 +1034,7 @@ class Contents {
 	 * @param {number} [height]
 	 */
 	size(width, height){
-		var viewport = { scale: 1.0, scalable: "no" };
+		var viewport: any = { scale: 1.0, scalable: "no" };
 
 		this.layoutStyle("scrolling");
 
@@ -1061,7 +1063,7 @@ class Contents {
 	 * @param {number} columnWidth
 	 * @param {number} gap
 	 */
-	columns(width, height, columnWidth, gap, dir){
+	columns(width, height, columnWidth, gap, dir?){
 		let COLUMN_AXIS = prefixed("column-axis");
 		let COLUMN_GAP = prefixed("column-gap");
 		let COLUMN_WIDTH = prefixed("column-width");
@@ -1122,7 +1124,7 @@ class Contents {
 	 * @param {number} offsetX
 	 * @param {number} offsetY
 	 */
-	scaler(scale, offsetX, offsetY){
+	scaler(scale, offsetX?, offsetY?){
 		var tx = isNumber(offsetX) ? offsetX : 0;
 		var ty = isNumber(offsetY) ? offsetY : 0;
 		this.css("transform-origin", "top left");
@@ -1254,7 +1256,7 @@ class Contents {
 	 * Set the direction of the text
 	 * @param {string} [dir="ltr"] "rtl" | "ltr"
 	 */
-	direction(dir) {
+	direction(dir?) {
 		if (this.documentElement) {
 			this.documentElement.style["direction"] = dir;
 		}
@@ -1280,7 +1282,7 @@ class Contents {
 	 * Set the writingMode of the text
 	 * @param {string} [mode="horizontal-tb"] "horizontal-tb" | "vertical-rl" | "vertical-lr"
 	 */
-	writingMode(mode) {
+	writingMode(mode?) {
 		let WRITING_MODE = prefixed("writing-mode");
 
 		if (mode && this.documentElement) {
@@ -1295,11 +1297,11 @@ class Contents {
 	 * @param {string} [style="paginated"] "scrolling" | "paginated"
 	 * @private
 	 */
-	layoutStyle(style) {
+	layoutStyle(style?) {
 
 		if (style) {
 			this._layoutStyle = style;
-			navigator.epubReadingSystem.layoutStyle = this._layoutStyle;
+			(navigator as any).epubReadingSystem.layoutStyle = this._layoutStyle;
 		}
 
 		return this._layoutStyle || "paginated";
@@ -1312,7 +1314,7 @@ class Contents {
 	 * @private
 	 */
 	epubReadingSystem(name, version) {
-		navigator.epubReadingSystem = {
+		(navigator as any).epubReadingSystem = {
 			name: name,
 			version: version,
 			layoutStyle: this.layoutStyle(),
@@ -1335,7 +1337,7 @@ class Contents {
 				}
 			}
 		};
-		return navigator.epubReadingSystem;
+		return (navigator as any).epubReadingSystem;
 	}
 
 	destroy() {
