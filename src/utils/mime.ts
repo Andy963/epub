@@ -3,7 +3,7 @@
 edited down
  */
 
-var table = {
+const table: Record<string, Record<string, string | string[]>> = {
 	"application" : {
 		"ecmascript" : [ "es", "ecma" ],
 		"javascript" : "js",
@@ -139,31 +139,39 @@ var table = {
 	}
 };
 
-var mimeTypes = (function() {
-	var type, subtype, val, index, mimeTypes = {};
-	for (type in table) {
-		if (table.hasOwnProperty(type)) {
-			for (subtype in table[type]) {
-				if (table[type].hasOwnProperty(subtype)) {
-					val = table[type][subtype];
-					if (typeof val == "string") {
-						mimeTypes[val] = type + "/" + subtype;
-					} else {
-						for (index = 0; index < val.length; index++) {
-							mimeTypes[val[index]] = type + "/" + subtype;
-						}
-					}
-				}
+const mimeTypes: Record<string, string> = (() => {
+	const mimeTypes: Record<string, string> = {};
+
+	for (const type in table) {
+		if (!Object.prototype.hasOwnProperty.call(table, type)) continue;
+
+		for (const subtype in table[type]) {
+			if (!Object.prototype.hasOwnProperty.call(table[type], subtype)) continue;
+
+			const val = table[type][subtype];
+			if (typeof val === "string") {
+				mimeTypes[val] = type + "/" + subtype;
+				continue;
+			}
+
+			for (const ext of val) {
+				mimeTypes[ext] = type + "/" + subtype;
 			}
 		}
 	}
+
 	return mimeTypes;
 })();
 
-var defaultValue = "text/plain";//"application/octet-stream";
+const defaultValue = "text/plain"; // "application/octet-stream"
 
-function lookup(filename) {
-	return filename && mimeTypes[filename.split(".").pop().toLowerCase()] || defaultValue;
-};
+function lookup(filename?: string | null): string {
+	if (!filename) return defaultValue;
+
+	const ext = filename.split(".").pop();
+	if (!ext) return defaultValue;
+
+	return mimeTypes[ext.toLowerCase()] || defaultValue;
+}
 
 export default { lookup };
