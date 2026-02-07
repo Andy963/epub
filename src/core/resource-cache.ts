@@ -1,7 +1,34 @@
-class ResourceCache {
-	constructor(options) {
+export interface ResourceCachePerformance {
+	count(name: string, value?: number): void;
+}
+
+export interface ResourceCacheOptions<V = unknown> {
+	revoke?: (value: V | undefined, key: string) => void;
+	performance?: ResourceCachePerformance;
+	retain?: boolean;
+	maxEntries?: number;
+}
+
+interface ResourceCacheEntry<V> {
+	value: V | undefined;
+	promise: Promise<V> | undefined;
+	refCount: number;
+	released: boolean;
+}
+
+class ResourceCache<V = unknown> {
+	private revoke: (value: V | undefined, key: string) => void;
+	private performance?: ResourceCachePerformance;
+	private retain: boolean;
+	private maxEntries: number;
+	private entries: Map<string, ResourceCacheEntry<V>>;
+	private children: Map<string, Set<string>>;
+	private unreferenced: Set<string>;
+	private unreferencedOrder: string[];
+
+	constructor(options?: ResourceCacheOptions<V>) {
 		options = options || {};
-		this.revoke = options.revoke || this.defaultRevoke;
+		this.revoke = options.revoke || this.defaultRevoke.bind(this);
 		this.performance = options.performance;
 		this.retain = Boolean(options.retain);
 		this.maxEntries = this.normalizeMaxEntries(options.maxEntries);
@@ -11,14 +38,18 @@ class ResourceCache {
 		this.unreferencedOrder = [];
 	}
 
-	normalizeMaxEntries(value) {
+	private normalizeMaxEntries(value: unknown): number {
 		if (typeof value !== "number" || !isFinite(value) || value <= 0) {
 			return 0;
 		}
 		return Math.floor(value);
 	}
 
-	acquire(key, parentKey, create) {
+	acquire(
+		key: string | undefined | null,
+		parentKey: string | undefined,
+		create: () => Promise<V> | V,
+	): Promise<V | string | undefined | null> {
 		if (!key) {
 			return Promise.resolve(key);
 		}
@@ -58,7 +89,7 @@ class ResourceCache {
 			promise: undefined,
 			refCount: 1,
 			released: false
-		};
+		} as ResourceCacheEntry<V>;
 
 		entry.promise = Promise.resolve()
 			.then(() => create())
@@ -84,7 +115,7 @@ class ResourceCache {
 		return entry.promise;
 	}
 
-	markReferenced(key) {
+	private markReferenced(key: string): void {
 		if (!this.unreferenced.has(key)) {
 			return;
 		}
@@ -96,7 +127,7 @@ class ResourceCache {
 		}
 	}
 
-	markUnreferenced(key) {
+	private markUnreferenced(key: string): void {
 		if (!this.retain || this.maxEntries === 0) {
 			return;
 		}
@@ -110,7 +141,7 @@ class ResourceCache {
 		this.evictUnreferenced();
 	}
 
-	evictUnreferenced() {
+	private evictUnreferenced(): void {
 		if (!this.retain || this.maxEntries === 0) {
 			return;
 		}
@@ -149,7 +180,7 @@ class ResourceCache {
 		}
 	}
 
-	release(key) {
+	release(key: string): void {
 		const entry = this.entries.get(key);
 		if (!entry) {
 			return;
@@ -181,7 +212,7 @@ class ResourceCache {
 		this.finalize(key, entry);
 	}
 
-	releaseParent(parentKey) {
+	private releaseParent(parentKey: string): void {
 		const parentChildren = this.children.get(parentKey);
 		if (!parentChildren) {
 			return;
@@ -193,7 +224,7 @@ class ResourceCache {
 		});
 	}
 
-	releaseChild(parentKey, childKey) {
+	releaseChild(parentKey: string, childKey: string): void {
 		const parentChildren = this.children.get(parentKey);
 		if (!parentChildren) {
 			return;
@@ -213,7 +244,7 @@ class ResourceCache {
 		this.release(childKey);
 	}
 
-	finalize(key, entry) {
+	private finalize(key: string, entry: ResourceCacheEntry<V>): void {
 		if (this.entries.get(key) !== entry) {
 			return;
 		}
@@ -236,7 +267,7 @@ class ResourceCache {
 		}
 	}
 
-	defaultRevoke(value) {
+	private defaultRevoke(value: V | undefined): void {
 		if (!value || typeof value !== "string") {
 			return;
 		}
@@ -250,7 +281,7 @@ class ResourceCache {
 		}
 	}
 
-	clear() {
+	clear(): void {
 		this.children.clear();
 		this.unreferenced.clear();
 		this.unreferencedOrder = [];
