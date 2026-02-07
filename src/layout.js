@@ -15,7 +15,7 @@ class Layout {
 	constructor(settings) {
 		this.settings = settings;
 		this.name = settings.layout || "reflowable";
-		this._spread = (settings.spread === "none") ? false : true;
+		this._spread = !(settings.spread === "none" || settings.spread === false);
 		this._minSpreadWidth = settings.minSpreadWidth || 800;
 		this._evenSpreads = settings.evenSpreads || false;
 
@@ -81,8 +81,8 @@ class Layout {
 	 */
 	spread(spread, min) {
 
-		if (spread) {
-			this._spread = (spread === "none") ? false : true;
+		if (typeof spread !== "undefined") {
+			this._spread = !(spread === "none" || spread === false);
 			// this.props.spread = this._spread;
 			this.update({spread: this._spread});
 		}
@@ -193,7 +193,17 @@ class Layout {
 			var formating;
 
 			if (this.name === "pre-paginated") {
-				formating = contents.fit(this.columnWidth, this.height, section, this.settings.viewport, this.settings.fixedLayoutZoom);
+				let width = this.columnWidth;
+				if (
+					this.divisor > 1 &&
+					section &&
+					(section.index === 0 ||
+						(section.properties &&
+							section.properties.includes("page-spread-center")))
+				) {
+					width = this.spreadWidth;
+				}
+				formating = contents.fit(width, this.height, section, this.settings.viewport, this.settings.fixedLayoutZoom);
 			} else if (this._flow === "paginated") {
 				formating = contents.columns(this.width, this.height, this.columnWidth, this.gap, this.settings.direction);
 			} else if (axis && axis === "horizontal") {

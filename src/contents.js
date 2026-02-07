@@ -1226,9 +1226,9 @@ class Contents {
 		let offsetY = Math.floor((height - scaledHeight) / 2);
 
 		if (section && section.properties && section.properties.includes("page-spread-left")) {
-			offsetX = Math.floor(width - scaledWidth);
-		} else if (section && section.properties && section.properties.includes("page-spread-right")) {
 			offsetX = 0;
+		} else if (section && section.properties && section.properties.includes("page-spread-right")) {
+			offsetX = Math.floor(width - scaledWidth);
 		}
 
 		offsetX = Math.max(0, offsetX);

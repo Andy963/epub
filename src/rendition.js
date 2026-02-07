@@ -611,11 +611,11 @@ class Rendition {
 	determineLayoutProperties(metadata){
 		var properties;
 		var layout = this.settings.layout || metadata.layout || "reflowable";
-		var spread = this.settings.spread || metadata.spread || "auto";
+		var spread = this.settings.spread != null ? this.settings.spread : (metadata.spread || "auto");
 		var orientation = this.settings.orientation || metadata.orientation || "auto";
 		var flow = this.settings.flow || metadata.flow || "auto";
 		var viewport = metadata.viewport || "";
-		var minSpreadWidth = this.settings.minSpreadWidth || metadata.minSpreadWidth || 800;
+		var minSpreadWidth = this.settings.minSpreadWidth != null ? this.settings.minSpreadWidth : (metadata.minSpreadWidth || 800);
 		var direction = this.settings.direction || metadata.direction || "ltr";
 		var fixedLayoutZoom;
 

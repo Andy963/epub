@@ -17,7 +17,7 @@ export interface RenditionOptions {
   view?: string | Function | object,
   flow?: string,
   layout?: string,
-  spread?: string,
+  spread?: string | boolean,
   minSpreadWidth?: number,
   stylesheet?: string,
   resizeOnOrientationChange?: boolean,
@@ -140,7 +140,7 @@ export default class Rendition {
 
     setManager(manager: Function): void;
 
-    spread(spread: string, min?: number): void;
+    spread(spread: string | boolean, min?: number): void;
 
     start(): void;
 

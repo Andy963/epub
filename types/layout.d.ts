@@ -1,10 +1,14 @@
 import Contents from "./contents";
 
 interface LayoutSettings {
-  layout: string,
-  spread: string,
-  minSpreadWidth: number,
-  evenSpreads: boolean
+  layout?: string,
+  spread?: string | boolean,
+  minSpreadWidth?: number,
+  evenSpreads?: boolean,
+  flow?: string,
+  direction?: string,
+  viewport?: string,
+  fixedLayoutZoom?: number | "fit-width" | "fit-page"
 }
 
 export default class Layout {
@@ -19,6 +23,7 @@ export default class Layout {
     width: number,
     height: number,
     spreadWidth: number,
+    pageWidth?: number,
     delta: number,
     columnWidth: number,
     gap: number,
@@ -31,7 +36,7 @@ export default class Layout {
 
   calculate(_width:number, _height:number, _gap?:number): void;
 
-  format(contents: Contents): void | Promise<void>;
+  format(contents: Contents, section?: any, axis?: string): void | Promise<void>;
 
   count(totalLength: number, pageLength: number): {spreads: Number, pages: Number};
 
