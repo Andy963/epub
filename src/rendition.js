@@ -27,7 +27,12 @@ import ContinuousViewManager from "./managers/continuous/index";
  * @param {object} [options]
  * @param {number} [options.width]
  * @param {number} [options.height]
- * @param {string} [options.ignoreClass] class for the cfi parser to ignore
+ * @param {string | function} [options.ignoreClass] class name or predicate for the cfi parser to ignore
+ * @param {number | object} [options.margin] stage padding for paginated layout
+ * @param {number | string} [options.maxInlineSize] max width of the stage container
+ * @param {number | string} [options.maxBlockSize] max height of the stage container
+ * @param {number} [options.gap] gap between columns in paginated flow
+ * @param {number} [options.maxColumnCount] maximum visible column count in paginated flow
  * @param {string | function | object} [options.manager='default']
  * @param {string | function} [options.view='iframe']
  * @param {string} [options.layout] layout to force
@@ -49,6 +54,11 @@ class Rendition {
 			width: null,
 			height: null,
 			ignoreClass: "",
+			margin: undefined,
+			maxInlineSize: undefined,
+			maxBlockSize: undefined,
+			gap: undefined,
+			maxColumnCount: undefined,
 			manager: "default",
 			view: "iframe",
 			flow: null,

@@ -369,12 +369,13 @@ class IframeView {
 			}
 
 			if (this.settings.forceEvenPages) {
-				columns = (width / this.layout.pageWidth);
-				if ( this.layout.divisor > 1 &&
-						 this.layout.name === "reflowable" &&
-						(columns % 2 > 0)) {
-					// add a blank page
-					width += this.layout.pageWidth;
+				columns = Math.floor(width / this.layout.pageWidth);
+				if (this.layout.divisor > 1 && this.layout.name === "reflowable") {
+					const remainder = columns % this.layout.divisor;
+					if (remainder > 0) {
+						// add blank pages to complete the spread
+						width += this.layout.pageWidth * (this.layout.divisor - remainder);
+					}
 				}
 			}
 

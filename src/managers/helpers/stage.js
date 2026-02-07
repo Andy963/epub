@@ -24,6 +24,9 @@ class Stage {
 		let overflow  = options.overflow || false;
 		let axis = options.axis || "vertical";
 		let direction = options.direction;
+		let padding = options.padding;
+		let maxInlineSize = options.maxInlineSize;
+		let maxBlockSize = options.maxBlockSize;
 
 		extend(this.settings, options);
 
@@ -62,6 +65,49 @@ class Stage {
 
 		if(height){
 			container.style.height = height;
+		}
+
+		const toCssSize = (value) => {
+			if (typeof value === "number" && isFinite(value)) {
+				return value + "px";
+			}
+			if (typeof value === "string") {
+				return value;
+			}
+		};
+
+		if (typeof padding === "number" && isFinite(padding) && padding >= 0) {
+			container.style.padding = padding + "px";
+		} else if (padding && typeof padding === "object") {
+			const top = toCssSize(padding.top);
+			const right = toCssSize(padding.right);
+			const bottom = toCssSize(padding.bottom);
+			const left = toCssSize(padding.left);
+
+			if (top) {
+				container.style.paddingTop = top;
+			}
+			if (right) {
+				container.style.paddingRight = right;
+			}
+			if (bottom) {
+				container.style.paddingBottom = bottom;
+			}
+			if (left) {
+				container.style.paddingLeft = left;
+			}
+		}
+
+		const maxWidth = toCssSize(maxInlineSize);
+		if (maxWidth) {
+			container.style.maxWidth = maxWidth;
+			container.style.marginLeft = "auto";
+			container.style.marginRight = "auto";
+		}
+
+		const maxHeight = toCssSize(maxBlockSize);
+		if (maxHeight) {
+			container.style.maxHeight = maxHeight;
 		}
 
 		if (overflow) {

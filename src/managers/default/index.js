@@ -5,6 +5,7 @@ import Mapping from "../../mapping";
 import Queue from "../../utils/queue";
 import Stage from "../helpers/stage";
 import Views from "../helpers/views";
+import Snap from "../helpers/snap";
 import { EVENTS } from "../../utils/constants";
 
 class DefaultViewManager {
@@ -27,6 +28,8 @@ class DefaultViewManager {
 			flow: "scrolled",
 			ignoreClass: "",
 			fullsize: undefined,
+			snap: false,
+			afterScrolledTimeout: 20,
 			allowScriptedContent: false,
 			allowPopups: false
 		});
@@ -72,6 +75,9 @@ class DefaultViewManager {
 		this.stage = new Stage({
 			width: size.width,
 			height: size.height,
+			padding: this.settings.margin,
+			maxInlineSize: this.settings.maxInlineSize,
+			maxBlockSize: this.settings.maxBlockSize,
 			overflow: this.overflow,
 			hidden: this.settings.hidden,
 			axis: this.settings.axis,
@@ -129,6 +135,15 @@ class DefaultViewManager {
 
 		this._onScroll = this.onScroll.bind(this);
 		scroller.addEventListener("scroll", this._onScroll);
+
+		if (this.isPaginated && this.settings.snap) {
+			this.snapper = new Snap(
+				this,
+				this.settings.snap &&
+					typeof this.settings.snap === "object" &&
+					this.settings.snap
+			);
+		}
 	}
 
 	removeEventListeners(){
@@ -152,6 +167,11 @@ class DefaultViewManager {
 		this.clear();
 
 		this.removeEventListeners();
+
+		if (this.snapper) {
+			this.snapper.destroy();
+			this.snapper = undefined;
+		}
 
 		this.stage.destroy();
 
@@ -968,12 +988,24 @@ class DefaultViewManager {
 			});
 
 			clearTimeout(this.afterScrolled);
+			const timeout =
+				typeof this.settings.afterScrolledTimeout === "number" &&
+				isFinite(this.settings.afterScrolledTimeout) &&
+				this.settings.afterScrolledTimeout >= 0
+					? this.settings.afterScrolledTimeout
+					: 20;
+
 			this.afterScrolled = setTimeout(function () {
+				// Don't report scroll if we are about to snap
+				if (this.snapper && this.snapper.supportsTouch && this.snapper.needsSnap()) {
+					return;
+				}
+
 				this.emit(EVENTS.MANAGERS.SCROLLED, {
 					top: this.scrollTop,
 					left: this.scrollLeft
 				});
-			}.bind(this), 20);
+			}.bind(this), timeout);
 
 
 
@@ -1015,7 +1047,8 @@ class DefaultViewManager {
 			this.layout.calculate(
 				this._stageSize.width,
 				this._stageSize.height,
-				this.settings.gap
+				this.settings.gap,
+				this.settings.maxColumnCount
 			);
 
 			// Set the look ahead offset for what is visible
@@ -1080,6 +1113,11 @@ class DefaultViewManager {
 	}
 
 	updateFlow(flow, defaultScrolledOverflow="auto"){
+		if (this.rendered && this.snapper) {
+			this.snapper.destroy();
+			this.snapper = undefined;
+		}
+
 		let isPaginated = (flow === "paginated" || flow === "auto");
 
 		this.isPaginated = isPaginated;
@@ -1104,6 +1142,14 @@ class DefaultViewManager {
 
 		this.updateLayout();
 
+		if (this.rendered && this.isPaginated && this.settings.snap) {
+			this.snapper = new Snap(
+				this,
+				this.settings.snap &&
+					typeof this.settings.snap === "object" &&
+					this.settings.snap
+			);
+		}
 	}
 
 	getContents(){
