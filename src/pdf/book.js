@@ -9,6 +9,7 @@ import ResourceCache from "../core/resource-cache";
 import { EVENTS } from "../utils/constants";
 
 import PdfSection from "./section";
+import PdfView from "./view";
 
 class PdfBook {
 	constructor(url, options) {
@@ -421,6 +422,15 @@ class PdfBook {
 
 	renderTo(element, options) {
 		const renditionOptions = extend({}, options || {});
+		if (typeof renditionOptions.view === "undefined") {
+			renditionOptions.view = PdfView;
+		}
+		if (typeof renditionOptions.manager === "undefined") {
+			renditionOptions.manager = "continuous";
+		}
+		if (typeof renditionOptions.flow === "undefined") {
+			renditionOptions.flow = "scrolled-continuous";
+		}
 		if (
 			typeof renditionOptions.prefetch === "undefined" &&
 			typeof this.settings.prefetchDistance === "number" &&

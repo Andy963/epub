@@ -98,7 +98,9 @@ const pdf = ePub.pdf("/path/to/file.pdf", {
   maxCachedTextPages: 50
 });
 
-// rendition.prefetch defaults from PdfBookOptions.prefetchDistance
+// Default: continuous scroll ("scrolled-continuous") with a PDF-optimized view
+// To force paginated mode:
+// const rendition = pdf.renderTo("viewer", { manager: "default", flow: "paginated" });
 const rendition = pdf.renderTo("viewer");
 await pdf.opened;
 await rendition.display(0);
