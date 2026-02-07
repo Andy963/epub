@@ -8,7 +8,7 @@ import Rendition, { RenditionOptions } from "./rendition";
 import Section, { SpineItem } from "./section";
 import Archive from "./archive";
 import ZipJsArchive from "./zipjs-archive";
-import Navigation from "./navigation";
+import Navigation, { NavItem } from "./navigation";
 import PageList, {PageListItem} from "./pagelist";
 import Spine from "./spine";
 import Locations from "./locations";
@@ -86,6 +86,10 @@ export default class Book {
     canonical(path: string): string;
 
     coverUrl(): Promise<string | null>;
+
+    getProgressOf(target: any): number | null;
+
+    getTocItemOf(target: any): NavItem | undefined;
 
     destroy(): void;
 
