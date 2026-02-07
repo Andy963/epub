@@ -51,7 +51,8 @@ class Spine {
 			var spineItem;
 
 			item.index = index;
-			item.cfiBase = this.epubcfi.generateChapterComponent(this.spineNodeIndex, item.index, item.id);
+			const cfiId = item.id || item.idref;
+			item.cfiBase = this.epubcfi.generateChapterComponent(this.spineNodeIndex, item.index, cfiId);
 
 			if (item.href) {
 				item.url = resolver(item.href, true);
