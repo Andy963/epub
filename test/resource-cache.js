@@ -33,5 +33,20 @@ describe("ResourceCache", function () {
 		cache.releaseParent("p");
 		assert.deepEqual(revoked.sort(), ["blob:a", "blob:b"]);
 	});
-});
 
+	it("should release a single child without affecting siblings", async function () {
+		const revoked = [];
+		const cache = new ResourceCache({
+			revoke: (value) => revoked.push(value),
+		});
+
+		await cache.acquire("a", "p", async () => "blob:a");
+		await cache.acquire("b", "p", async () => "blob:b");
+
+		cache.releaseChild("p", "a");
+		assert.deepEqual(revoked, ["blob:a"]);
+
+		cache.releaseParent("p");
+		assert.deepEqual(revoked.sort(), ["blob:a", "blob:b"]);
+	});
+});

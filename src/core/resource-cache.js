@@ -193,6 +193,26 @@ class ResourceCache {
 		});
 	}
 
+	releaseChild(parentKey, childKey) {
+		const parentChildren = this.children.get(parentKey);
+		if (!parentChildren) {
+			return;
+		}
+
+		if (!parentChildren.has(childKey)) {
+			return;
+		}
+
+		parentChildren.delete(childKey);
+		if (parentChildren.size === 0) {
+			this.children.delete(parentKey);
+		} else {
+			this.children.set(parentKey, parentChildren);
+		}
+
+		this.release(childKey);
+	}
+
 	finalize(key, entry) {
 		if (this.entries.get(key) !== entry) {
 			return;
