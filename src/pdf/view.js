@@ -1,6 +1,39 @@
 import IframeView from "../managers/views/iframe";
 
 class PdfView extends IframeView {
+	container(axis) {
+		const element = super.container(axis);
+		if (axis !== "horizontal") {
+			element.style.marginLeft = "auto";
+			element.style.marginRight = "auto";
+		}
+		return element;
+	}
+
+	onLoad(event, promise) {
+		super.onLoad(event, promise);
+
+		const doc = this.document;
+		if (!doc || typeof doc.querySelector !== "function") {
+			return;
+		}
+
+		const textLayer = doc.querySelector(".textLayer");
+		if (!textLayer) {
+			return;
+		}
+
+		const marker = "__epubjsTextSelectionFix";
+		if (textLayer[marker]) {
+			return;
+		}
+		textLayer[marker] = true;
+
+		textLayer.onpointerdown = () => textLayer.classList.add("selecting");
+		textLayer.onpointerup = () => textLayer.classList.remove("selecting");
+		textLayer.onpointercancel = () => textLayer.classList.remove("selecting");
+	}
+
 	size(_width, _height) {
 		const width = _width || this.settings.width;
 		const height = _height || this.settings.height;
@@ -108,4 +141,3 @@ class PdfView extends IframeView {
 }
 
 export default PdfView;
-

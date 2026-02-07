@@ -529,6 +529,9 @@ class PdfBook {
 		if (typeof renditionOptions.flow === "undefined") {
 			renditionOptions.flow = "scrolled-continuous";
 		}
+		if (typeof renditionOptions.allowScriptedContent === "undefined") {
+			renditionOptions.allowScriptedContent = true;
+		}
 		if (!renditionOptions.fixedLayout || typeof renditionOptions.fixedLayout !== "object") {
 			renditionOptions.fixedLayout = { zoom: "fit-width" };
 		} else if (typeof renditionOptions.fixedLayout.zoom === "undefined") {
