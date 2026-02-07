@@ -61,6 +61,7 @@ class PdfView extends IframeView {
 
 		if (this.shouldUseDynamicHeight()) {
 			const width = this._width;
+			const containerHeight = this._height || (this.layout && this.layout.height);
 			if (!width) {
 				return;
 			}
@@ -72,23 +73,40 @@ class PdfView extends IframeView {
 				return;
 			}
 
-			const scale = width / viewportWidth;
+			const zoom = this.layout && this.layout.settings ? this.layout.settings.fixedLayoutZoom : undefined;
+			const widthScale = width / viewportWidth;
+			const heightScale = containerHeight ? containerHeight / viewportHeight : widthScale;
+
+			let scale;
+			if (typeof zoom === "number" && isFinite(zoom) && zoom > 0) {
+				scale = zoom;
+			} else if (zoom === "fit-width") {
+				scale = widthScale;
+			} else {
+				scale = Math.min(widthScale, heightScale);
+			}
+
 			if (!scale || !isFinite(scale)) {
 				return;
 			}
 
-			const height = Math.ceil(viewportHeight * scale);
-			if (!height || !isFinite(height)) {
+			let viewWidth = width;
+			if (typeof zoom === "number" && isFinite(zoom) && zoom > 0) {
+				viewWidth = Math.ceil(viewportWidth * scale);
+			}
+			const viewHeight = Math.ceil(viewportHeight * scale);
+
+			if (!viewWidth || !isFinite(viewWidth) || !viewHeight || !isFinite(viewHeight)) {
 				return;
 			}
 
 			try {
-				this.contents.fit(width, height, this.section);
+				this.contents.fit(viewWidth, viewHeight, this.section, undefined, zoom);
 			} catch (e) {
 				// NOOP
 			}
 
-			this.reframe(width, height);
+			this.reframe(viewWidth, viewHeight);
 			return;
 		}
 
