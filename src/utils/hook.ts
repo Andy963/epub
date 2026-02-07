@@ -6,7 +6,10 @@
  * @example this.content = new EPUBJS.Hook(this);
  */
 class Hook {
-	constructor(context){
+	context: unknown;
+	hooks: Array<(...args: any[]) => unknown>;
+
+	constructor(context?: unknown) {
 		this.context = context || this;
 		this.hooks = [];
 	}
@@ -15,15 +18,16 @@ class Hook {
 	 * Adds a function to be run before a hook completes
 	 * @example this.content.register(function(){...});
 	 */
-	register(){
-		for(var i = 0; i < arguments.length; ++i) {
-			if (typeof arguments[i]  === "function") {
-				this.hooks.push(arguments[i]);
-			} else {
-				// unpack array
-				for(var j = 0; j < arguments[i].length; ++j) {
-					this.hooks.push(arguments[i][j]);
-				}
+	register(...items: Array<((...args: any[]) => unknown) | Array<(...args: any[]) => unknown>>): void {
+		for (const item of items) {
+			if (typeof item === "function") {
+				this.hooks.push(item);
+				continue;
+			}
+
+			// unpack array
+			for (const hook of item) {
+				this.hooks.push(hook);
 			}
 		}
 	}
@@ -32,7 +36,7 @@ class Hook {
 	 * Removes a function
 	 * @example this.content.deregister(function(){...});
 	 */
-	deregister(func){
+	deregister(func: (...args: any[]) => unknown): void {
 		let hook;
 		for (let i = 0; i < this.hooks.length; i++) {
 			hook = this.hooks[i];
@@ -47,22 +51,21 @@ class Hook {
 	 * Triggers a hook to run all functions
 	 * @example this.content.trigger(args).then(function(){...});
 	 */
-	trigger(){
-		var args = arguments;
-		var context = this.context;
-		var promises = [];
+	trigger(...args: any[]): Promise<unknown[]> {
+		const context = this.context;
+		const promises: Array<Promise<unknown>> = [];
 
 		this.hooks.forEach(function(task) {
 			try {
-				var executing = task.apply(context, args);
+				const executing = task.apply(context, args);
+				if (executing && typeof (executing as any)["then"] === "function") {
+					// Task is a function that returns a promise
+					promises.push(executing as Promise<unknown>);
+				}
 			} catch (err) {
 				console.log(err);
 			}
 
-			if(executing && typeof executing["then"] === "function") {
-				// Task is a function that returns a promise
-				promises.push(executing);
-			}
 			// Otherwise Task resolves immediately, continue
 		});
 
@@ -71,12 +74,13 @@ class Hook {
 	}
 
 	// Adds a function to be run before a hook completes
-	list(){
+	list(): Array<(...args: any[]) => unknown> {
 		return this.hooks;
 	}
 
-	clear(){
-		return this.hooks = [];
+	clear(): Array<(...args: any[]) => unknown> {
+		this.hooks = [];
+		return this.hooks;
 	}
 }
 export default Hook;
