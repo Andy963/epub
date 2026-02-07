@@ -237,10 +237,10 @@ class IframeView {
 				this.setWritingMode(writingMode);
 				this.emit(EVENTS.VIEWS.WRITING_MODE, writingMode);
 
-				this.enableSelectionScrollLock();
+					this.enableSelectionScrollLock();
 
-				// apply the layout function to the contents
-				this.layout.format(this.contents, this.section, this.axis);
+					// apply the layout function to the contents
+					this.layout.format(this.contents, this.section, axis);
 
 				// Listen for events that require an expansion of the iframe
 				this.addListeners();
@@ -508,35 +508,35 @@ class IframeView {
 			this.document.querySelector("head").appendChild(link);
 		}
 
-		this.contents.on(EVENTS.CONTENTS.EXPAND, () => {
-			if(this.displayed && this.iframe) {
-				this.expand();
-				if (this.contents) {
-					this.layout.format(this.contents);
+			this.contents.on(EVENTS.CONTENTS.EXPAND, () => {
+				if(this.displayed && this.iframe) {
+					this.expand();
+					if (this.contents) {
+						this.layout.format(this.contents, this.section, this.settings.axis);
+					}
 				}
-			}
-		});
+			});
 
-		this.contents.on(EVENTS.CONTENTS.RESIZE, (e) => {
-			if(this.displayed && this.iframe) {
-				this.expand();
-				if (this.contents) {
-					this.layout.format(this.contents);
+			this.contents.on(EVENTS.CONTENTS.RESIZE, (e) => {
+				if(this.displayed && this.iframe) {
+					this.expand();
+					if (this.contents) {
+						this.layout.format(this.contents, this.section, this.settings.axis);
+					}
 				}
-			}
-		});
+			});
 
 		promise.resolve(this.contents);
 	}
 
-	setLayout(layout) {
-		this.layout = layout;
+		setLayout(layout) {
+			this.layout = layout;
 
-		if (this.contents) {
-			this.layout.format(this.contents);
-			this.expand();
+			if (this.contents) {
+				this.layout.format(this.contents, this.section, this.settings.axis);
+				this.expand();
+			}
 		}
-	}
 
 	setAxis(axis) {
 
