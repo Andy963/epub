@@ -5,6 +5,46 @@ const TEXT_NODE = 3;
 const COMMENT_NODE = 8;
 const DOCUMENT_NODE = 9;
 
+function isIgnored(node, ignore) {
+	if (!node || !ignore) {
+		return false;
+	}
+
+	if (typeof ignore === "function") {
+		try {
+			return ignore(node) === true;
+		} catch (e) {
+			return false;
+		}
+	}
+
+	if (typeof ignore === "string") {
+		return Boolean(node.classList && node.classList.contains(ignore));
+	}
+
+	return false;
+}
+
+function shouldUseIgnore(doc, ignore) {
+	if (!ignore) {
+		return false;
+	}
+
+	if (typeof ignore === "function") {
+		return true;
+	}
+
+	if (typeof ignore === "string" && doc && typeof doc.querySelector === "function") {
+		try {
+			return doc.querySelector("." + ignore) != null;
+		} catch (e) {
+			return true;
+		}
+	}
+
+	return Boolean(ignore);
+}
+
 /**
 	* Parsing and creation of EpubCFIs: http://www.idpf.org/epub/linking/cfi/epub-cfi.html
 
@@ -20,7 +60,7 @@ const DOCUMENT_NODE = 9;
 	* @class
 	@param {string | Range | Node } [cfiFrom]
 	@param {string | object} [base]
-	@param {string} [ignoreClass] class to ignore when parsing DOM
+	@param {string | function} [ignoreClass] selector class name or predicate to ignore when parsing DOM
 */
 class EpubCFI {
 	constructor(cfiFrom, base, ignoreClass){
@@ -524,7 +564,7 @@ class EpubCFI {
 
 		if (ignoreClass) {
 			// Tell pathTo if / what to ignore
-			needsIgnoring = (start.ownerDocument.querySelector("." + ignoreClass) != null);
+			needsIgnoring = shouldUseIgnore(start && start.ownerDocument, ignoreClass);
 		}
 
 
@@ -629,10 +669,10 @@ class EpubCFI {
 		if (anchor.nodeType === TEXT_NODE) {
 			isText = true;
 			parent = anchor.parentNode;
-			needsIgnoring = anchor.parentNode.classList.contains(ignoreClass);
+			needsIgnoring = isIgnored(anchor.parentNode, ignoreClass);
 		} else {
 			isText = false;
-			needsIgnoring = anchor.classList.contains(ignoreClass);
+			needsIgnoring = isIgnored(anchor, ignoreClass);
 		}
 
 		if (needsIgnoring && isText) {
@@ -672,14 +712,14 @@ class EpubCFI {
 		var totalOffset = offset;
 
 		// If the parent is a ignored node, get offset from it's start
-		if (anchor.parentNode.classList.contains(ignoreClass)) {
+		if (isIgnored(anchor.parentNode, ignoreClass)) {
 			curr = anchor.parentNode;
 		}
 
 		while (curr.previousSibling) {
 			if(curr.previousSibling.nodeType === ELEMENT_NODE) {
 				// Originally a text node, so join
-				if(curr.previousSibling.classList.contains(ignoreClass)){
+				if(isIgnored(curr.previousSibling, ignoreClass)){
 					totalOffset += curr.previousSibling.textContent.length;
 				} else {
 					break; // Normal node, dont join
@@ -708,8 +748,7 @@ class EpubCFI {
 			currNodeType = children[i].nodeType;
 
 			// Check if needs ignoring
-			if (currNodeType === ELEMENT_NODE &&
-					children[i].classList.contains(ignoreClass)) {
+			if (currNodeType === ELEMENT_NODE && isIgnored(children[i], ignoreClass)) {
 				currNodeType = TEXT_NODE;
 			}
 
@@ -755,7 +794,7 @@ class EpubCFI {
 		} else {
 			children = anchor.parentNode.childNodes;
 			// Inside an ignored node
-			if(anchor.parentNode.classList.contains(ignoreClass)) {
+			if(isIgnored(anchor.parentNode, ignoreClass)) {
 				anchor = anchor.parentNode;
 				children = anchor.parentNode.childNodes;
 			}
@@ -827,7 +866,7 @@ class EpubCFI {
 			filter(function (node) {
 				if (node.nodeType === TEXT_NODE) {
 					return true;
-				} else if (ignoreClass && node.classList.contains(ignoreClass)) {
+				} else if (ignoreClass && isIgnored(node, ignoreClass)) {
 					return true;
 				}
 				return false;
@@ -937,7 +976,7 @@ class EpubCFI {
 		var start, end, startContainer, endContainer;
 		var cfi = this;
 		var startSteps, endSteps;
-		var needsIgnoring = ignoreClass ? (doc.querySelector("." + ignoreClass) != null) : false;
+		var needsIgnoring = shouldUseIgnore(doc, ignoreClass);
 		var missed;
 
 		if (typeof(doc.createRange) !== "undefined") {

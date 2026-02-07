@@ -193,13 +193,26 @@ class Packaging {
 		if (! uniqueIdentifierId) {
 			return "";
 		}
+
 		var identifier = packageXml.getElementById(uniqueIdentifierId);
+		if (!identifier) {
+			// getElementById is not reliable for XML unless the parser marks the attribute as type ID
+			var candidates = packageXml.getElementsByTagNameNS("http://purl.org/dc/elements/1.1/", "identifier");
+			for (var i = 0; i < candidates.length; i += 1) {
+				var candidate = candidates[i];
+				if (candidate && candidate.getAttribute && candidate.getAttribute("id") === uniqueIdentifierId) {
+					identifier = candidate;
+					break;
+				}
+			}
+		}
 		if (! identifier) {
 			return "";
 		}
 
 		if (identifier.localName === "identifier" && identifier.namespaceURI === "http://purl.org/dc/elements/1.1/") {
-			return identifier.childNodes.length > 0 ? identifier.childNodes[0].nodeValue.trim() : "";
+			var text = identifier.textContent || "";
+			return text ? text.trim() : "";
 		}
 
 		return "";

@@ -8,7 +8,7 @@ import Rendition, { RenditionOptions } from "./rendition";
 import Section, { SpineItem } from "./section";
 import Archive from "./archive";
 import ZipJsArchive from "./zipjs-archive";
-import Navigation from "./navigation";
+import Navigation, { NavItem } from "./navigation";
 import PageList, {PageListItem} from "./pagelist";
 import Spine from "./spine";
 import Locations from "./locations";
@@ -42,6 +42,7 @@ export interface BookOptions {
   store?: string,
   archiveMethod?: "jszip" | "zipjs",
   zipjs?: any,
+  deobfuscate?: boolean,
   metrics?: boolean | BookMetricsOptions,
   prefetchDistance?: number,
   maxLoadedSections?: number,
@@ -85,6 +86,10 @@ export default class Book {
     canonical(path: string): string;
 
     coverUrl(): Promise<string | null>;
+
+    getProgressOf(target: any): number | null;
+
+    getTocItemOf(target: any): NavItem | undefined;
 
     destroy(): void;
 

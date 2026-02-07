@@ -12,7 +12,12 @@ import Queue from "./utils/queue";
 export interface RenditionOptions {
   width?: number | string,
   height?: number | string,
-  ignoreClass?: string,
+  ignoreClass?: string | ((node: Node) => boolean),
+  margin?: number | { top?: number, right?: number, bottom?: number, left?: number },
+  maxInlineSize?: number | string,
+  maxBlockSize?: number | string,
+  gap?: number,
+  maxColumnCount?: number,
   manager?: string | Function | object,
   view?: string | Function | object,
   flow?: string,
@@ -65,7 +70,9 @@ export default class Rendition {
       unloaded: Hook,
       layout: Hook,
       render: Hook,
-      show: Hook
+      show: Hook,
+      header: Hook,
+      footer: Hook
     }
     themes: Themes;
     annotations: Annotations;
@@ -96,7 +103,7 @@ export default class Rendition {
 
     getContents(): Contents;
 
-    getRange(cfi: string, ignoreClass?: string): Range;
+    getRange(cfi: string, ignoreClass?: string | ((node: Node) => boolean)): Range;
 
     handleLinks(contents: Contents): void;
 

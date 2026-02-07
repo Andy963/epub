@@ -4,6 +4,7 @@ import Navigation from "./navigation";
 
 export interface PdfBookOptions {
   pdfjs?: any,
+  pdfjsViewer?: any,
   workerSrc?: string,
   password?: string,
   withCredentials?: boolean,

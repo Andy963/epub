@@ -44,6 +44,7 @@
 `PdfBookOptions` 常用项：
 
 - `workerSrc?: string`：PDF.js worker 脚本地址。
+- `pdfjsViewer?: any`：可选，提供 PDF.js viewer 模块（如 `pdfjsViewer.renderTextLayer` / `AnnotationLayer.render`），用于提升 text/annotation layer 兼容性（缺失时自动回退到内置实现）。
 - `cMapUrl?: string`：PDF.js CMap 资源路径（某些 PDF/字体渲染需要）。
 - `cMapPacked?: boolean`：是否使用 packed CMaps（配合 `cMapUrl`）。
 - `standardFontDataUrl?: string`：PDF.js 标准字体资源路径。

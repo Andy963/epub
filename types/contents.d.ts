@@ -32,9 +32,9 @@ export default class Contents {
 
     addStylesheetCss(serializedCss: string, key: string): Promise<boolean>;
 
-    cfiFromNode(node: Node, ignoreClass?: string): string;
+    cfiFromNode(node: Node, ignoreClass?: string | ((node: Node) => boolean)): string;
 
-    cfiFromRange(range: Range, ignoreClass?: string): string;
+    cfiFromRange(range: Range, ignoreClass?: string | ((node: Node) => boolean)): string;
 
     columns(width: number, height: number, columnWidth: number, gap: number, dir: string): void;
 
@@ -52,7 +52,7 @@ export default class Contents {
 
     height(h: number): number;
 
-    locationOf(target: string | EpubCFI, ignoreClass?: string): Promise<{ top: number, left: number }>;
+    locationOf(target: string | EpubCFI, ignoreClass?: string | ((node: Node) => boolean)): Promise<{ top: number, left: number }>;
 
     map(layout: any): any;
 
@@ -64,7 +64,7 @@ export default class Contents {
 
     overflowY(overflow: string): string;
 
-    range(cfi: string, ignoreClass?: string): Range;
+    range(cfi: string, ignoreClass?: string | ((node: Node) => boolean)): Range;
 
     removeClass(className: any): void;
 

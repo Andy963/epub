@@ -22,7 +22,7 @@ interface EpubCFIComponent {
 }
 
 export default class EpubCFI {
-    constructor(cfiFrom?: string | Range | Node, base?: string | object, ignoreClass?: string);
+    constructor(cfiFrom?: string | Range | Node, base?: string | object, ignoreClass?: string | ((node: Node) => boolean));
 
     base: EpubCFIComponent;
 		spinePos: number;
@@ -30,9 +30,9 @@ export default class EpubCFI {
 
     isCfiString(str: string): boolean;
 
-    fromNode(anchor: Node, base: string | object, ignoreClass?: string): EpubCFI;
+    fromNode(anchor: Node, base: string | object, ignoreClass?: string | ((node: Node) => boolean)): EpubCFI;
 
-    fromRange(range: Range, base: string | object, ignoreClass?: string): EpubCFI;
+    fromRange(range: Range, base: string | object, ignoreClass?: string | ((node: Node) => boolean)): EpubCFI;
 
     parse(cfiStr: string): EpubCFI;
 
@@ -42,17 +42,17 @@ export default class EpubCFI {
 
     equalStep(stepA: object, stepB: object): boolean;
 
-    filter(anchor: Element, ignoreClass?: string): Element | false;
+    filter(anchor: Element, ignoreClass?: string | ((node: Node) => boolean)): Element | false;
 
-    toRange(_doc?: Document, ignoreClass?: string): Range;
+    toRange(_doc?: Document, ignoreClass?: string | ((node: Node) => boolean)): Range;
 
     toString(): string;
 
-    private filteredStep(node: Node, ignoreClass?: string): any;
+    private filteredStep(node: Node, ignoreClass?: string | ((node: Node) => boolean)): any;
 
-    private findNode(steps: Array<EpubCFIStep>, _doc?: Document, ignoreClass?: string): Node;
+    private findNode(steps: Array<EpubCFIStep>, _doc?: Document, ignoreClass?: string | ((node: Node) => boolean)): Node;
 
-    private fixMiss(steps: Array<EpubCFIStep>, offset: number, _doc?: Document, ignoreClass?: string): any;
+    private fixMiss(steps: Array<EpubCFIStep>, offset: number, _doc?: Document, ignoreClass?: string | ((node: Node) => boolean)): any;
 
     private checkType(cfi: string | Range | Node): string | false;
 
@@ -68,7 +68,7 @@ export default class EpubCFI {
 
     private joinSteps(steps: Array<EpubCFIStep>): Array<EpubCFIStep>;
 
-    private normalizedMap(children: Array<Node>, nodeType: number, ignoreClass?: string): object;
+    private normalizedMap(children: Array<Node>, nodeType: number, ignoreClass?: string | ((node: Node) => boolean)): object;
 
     private parseComponent(componentStr: string): object;
 
@@ -76,9 +76,9 @@ export default class EpubCFI {
 
     private parseTerminal(termialStr: string): object;
 
-    private patchOffset(anchor: Node, offset: number, ignoreClass?: string): number;
+    private patchOffset(anchor: Node, offset: number, ignoreClass?: string | ((node: Node) => boolean)): number;
 
-    private pathTo(node: Node, offset: number, ignoreClass?: string): EpubCFISegment;
+    private pathTo(node: Node, offset: number, ignoreClass?: string | ((node: Node) => boolean)): EpubCFISegment;
 
     private position(anchor: Node): number;
 
@@ -90,8 +90,8 @@ export default class EpubCFI {
 
     private stepsToXpath(steps: Array<EpubCFIStep>): string;
 
-    private textNodes(container: Node, ignoreClass?: string): Array<Node>;
+    private textNodes(container: Node, ignoreClass?: string | ((node: Node) => boolean)): Array<Node>;
 
-    private walkToNode(steps: Array<EpubCFIStep>, _doc?: Document, ignoreClass?: string): Node;
+    private walkToNode(steps: Array<EpubCFIStep>, _doc?: Document, ignoreClass?: string | ((node: Node) => boolean)): Node;
 
 }

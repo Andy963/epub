@@ -13,6 +13,7 @@ class Archive {
 	constructor() {
 		this.zip = undefined;
 		this.urlCache = {};
+		this.obfuscation = undefined;
 
 		this.checkRequirements();
 
@@ -29,6 +30,21 @@ class Archive {
 		} catch (e) {
 			throw new Error("JSZip lib not loaded");
 		}
+	}
+
+	setObfuscation(obfuscation) {
+		this.obfuscation = obfuscation;
+	}
+
+	uint8ArrayToBase64(uint8array) {
+		// Avoid stack overflow for large arrays
+		let binary = "";
+		const chunkSize = 0x8000;
+		for (let i = 0; i < uint8array.length; i += chunkSize) {
+			const chunk = uint8array.subarray(i, i + chunkSize);
+			binary += String.fromCharCode.apply(null, chunk);
+		}
+		return btoa(binary);
 	}
 
 	/**
@@ -134,8 +150,12 @@ class Archive {
 		if(entry) {
 			mimeType = mimeType || mime.lookup(entry.name);
 			return entry.async("uint8array").then(function(uint8array) {
-				return new Blob([uint8array], {type : mimeType});
-			});
+				const obfuscation = this.obfuscation;
+				const bytes = obfuscation && typeof obfuscation.deobfuscate === "function"
+					? obfuscation.deobfuscate(decodededUrl, uint8array)
+					: uint8array;
+				return new Blob([bytes], {type : mimeType});
+			}.bind(this));
 		}
 	}
 
@@ -168,9 +188,15 @@ class Archive {
 
 		if(entry) {
 			mimeType = mimeType || mime.lookup(entry.name);
-			return entry.async("base64").then(function(data) {
-				return "data:" + mimeType + ";base64," + data;
-			});
+			return entry.async("uint8array").then(function(uint8array) {
+				const obfuscation = this.obfuscation;
+				const bytes = obfuscation && typeof obfuscation.deobfuscate === "function"
+					? obfuscation.deobfuscate(decodededUrl, uint8array)
+					: uint8array;
+
+				const base64 = this.uint8ArrayToBase64(bytes);
+				return "data:" + mimeType + ";base64," + base64;
+			}.bind(this));
 		}
 	}
 

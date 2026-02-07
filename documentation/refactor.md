@@ -157,3 +157,71 @@ console.log(nav.toc);
 const results = await pdf.searchText("alice", { maxResults: 20 });
 console.log(results);
 ```
+
+## 7. foliate-js Parity TODO (Engine-only)
+
+说明：以下 TODO 只覆盖“引擎层”能力（解析、渲染、定位、搜索、资源加载等），不包含阅读器壳（书库、UI、快捷键、主题面板等）。
+
+### EPUB
+
+- [x] `META-INF/encryption.xml`：支持字体混淆解码（IDPF + Adobe），确保含混淆字体的书可正常渲染（可用 `deobfuscate: false` 关闭）
+  - [x] 目录模式（未归档）输入：仅为“命中混淆映射的字体资源”与“依赖这些字体的 CSS”生成替换 URL（避免全量 assets replacement），确保不经 archive backend 也能正确解码
+- [x] 进度 / 目录对齐：提供不依赖 `Locations` 的进度计算与 `toc` 定位 helper（`book.getProgressOf(...)` / `book.getTocItemOf(...)`）
+- [x] Paginator 能力补齐：更细粒度的分页参数（`margin` / `gap` / `maxColumnCount` 等）与可扩展的 header/footer hooks（不引入 UI）
+  - [x] `margin` / `maxInlineSize` / `maxBlockSize`：通过 Stage padding/max-size 控制可视区域
+  - [x] `maxColumnCount`：支持 >2 columns 的分页
+  - [x] header/footer hooks：不引入 UI 的可扩展接口
+- [x] CFI 稳定性：支持为 CFI 生成/解析提供 predicate filter（忽略注入节点/标注层），降低定位漂移风险
+- [x] 交互手感（可选）：翻页动画/滑动吸附策略对齐（保持默认行为不变，作为 opt-in，通过 `snap` 启用）
+
+最小用法示例：
+
+```js
+const progress = book.getProgressOf(rendition.currentLocation());
+const tocItem = book.getTocItemOf(rendition.currentLocation());
+```
+
+CFI filter 示例（`ignoreClass` 同时支持 string 与 predicate）：
+
+```js
+const ignore = (node) =>
+  node.nodeType === 1 &&
+  node.classList &&
+  (node.classList.contains("epubjs-skip") || node.classList.contains("annotation-layer"));
+
+const rendition = book.renderTo("viewer", {
+  ignoreClass: ignore
+});
+```
+
+Paginator 参数示例（opt-in）：
+
+```js
+const rendition = book.renderTo("viewer", {
+  flow: "paginated",
+  margin: 32,
+  maxColumnCount: 3,
+  maxInlineSize: 900,
+  gap: 40
+});
+```
+
+header/footer hooks 示例（不引入 UI，仅提供 hook 点，便于应用侧渲染页眉/页脚）：
+
+```js
+rendition.hooks.header.register((location) => {
+  // Update your header UI with `location`
+});
+
+rendition.hooks.footer.register((location) => {
+  // Update your footer UI with `location`
+});
+```
+
+### PDF
+
+- [x] PDF 渲染层：更贴近 PDF.js 的 textLayer / annotationLayer（提升选择复制、链接/注释兼容性）
+  - [x] textLayer：当提供 `pdfjsViewer`（或全局 `pdfjsViewer`）且存在 `renderTextLayer` 时，优先使用 PDF.js 的实现
+  - [x] annotationLayer：当提供 `pdfjsViewer`（或全局 `pdfjsViewer`）且存在 `AnnotationLayer.render` 时，优先使用 PDF.js 的实现（失败时自动回退）
+- [x] 进度权重：按页面积/权重计算进度（对齐基于 `size` 的 progress 语义）
+- [x] 链接/outline：补齐更多注释类型与 outline 目标解析边界条件

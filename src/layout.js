@@ -99,8 +99,9 @@ class Layout {
 	 * @param  {number} _width  width of the rendering
 	 * @param  {number} _height height of the rendering
 	 * @param  {number} _gap    width of the gap between columns
+	 * @param  {number} [_maxColumnCount] maximum visible column count in paginated flow
 	 */
-	calculate(_width, _height, _gap){
+	calculate(_width, _height, _gap, _maxColumnCount){
 
 		var divisor = 1;
 		var gap = _gap || 0;
@@ -121,6 +122,33 @@ class Layout {
 			divisor = 2;
 		} else {
 			divisor = 1;
+		}
+
+		const maxColumnCount =
+			typeof _maxColumnCount === "number" && isFinite(_maxColumnCount)
+				? Math.floor(_maxColumnCount)
+				: undefined;
+
+		if (typeof maxColumnCount === "number" && maxColumnCount > 0) {
+			if (maxColumnCount === 1) {
+				divisor = 1;
+			} else if (divisor > maxColumnCount) {
+				divisor = maxColumnCount;
+			} else if (
+				maxColumnCount > divisor &&
+				this.name === "reflowable" &&
+				this._flow === "paginated" &&
+				this._spread &&
+				width >= this._minSpreadWidth
+			) {
+				const minPageWidth = this._minSpreadWidth / 2;
+				if (minPageWidth > 0 && isFinite(minPageWidth)) {
+					const possible = Math.floor(width / minPageWidth);
+					if (possible > divisor) {
+						divisor = Math.min(maxColumnCount, possible);
+					}
+				}
+			}
 		}
 
 		if (this.name === "reflowable" && this._flow === "paginated" && !(_gap >= 0)) {

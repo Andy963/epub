@@ -11,6 +11,56 @@ import { EVENTS } from "../utils/constants";
 import PdfSection from "./section";
 import PdfView from "./view";
 
+class FenwickTree {
+	constructor(size) {
+		this.size =
+			typeof size === "number" && isFinite(size) && size > 0
+				? Math.floor(size)
+				: 0;
+		this.tree = this.size ? new Float64Array(this.size + 1) : new Float64Array(0);
+	}
+
+	add(index, delta) {
+		if (!this.size) {
+			return;
+		}
+
+		const resolvedIndex =
+			typeof index === "number" && isFinite(index) ? Math.floor(index) : -1;
+		const value =
+			typeof delta === "number" && isFinite(delta) ? delta : 0;
+
+		if (resolvedIndex < 0 || resolvedIndex >= this.size || value === 0) {
+			return;
+		}
+
+		let i = resolvedIndex + 1;
+		while (i <= this.size) {
+			this.tree[i] += value;
+			i += i & -i;
+		}
+	}
+
+	sum(endExclusive) {
+		if (!this.size) {
+			return 0;
+		}
+
+		const resolvedEnd =
+			typeof endExclusive === "number" && isFinite(endExclusive)
+				? Math.max(0, Math.min(this.size, Math.floor(endExclusive)))
+				: 0;
+
+		let i = resolvedEnd;
+		let out = 0;
+		while (i > 0) {
+			out += this.tree[i];
+			i -= i & -i;
+		}
+		return out;
+	}
+}
+
 class PdfBook {
 	constructor(url, options) {
 		if (
@@ -26,6 +76,7 @@ class PdfBook {
 
 		this.settings = extend(this.settings || {}, {
 			pdfjs: undefined,
+			pdfjsViewer: undefined,
 			workerSrc: undefined,
 			password: undefined,
 			withCredentials: undefined,
@@ -67,6 +118,9 @@ class PdfBook {
 
 		this.pdf = undefined;
 		this.numPages = 0;
+		this._progressBaseWeight = 1;
+		this._progressDeltas = undefined;
+		this._progressDeltaTree = undefined;
 
 		this.epubcfi = new EpubCFI();
 		this.spine = new Spine();
@@ -160,6 +214,16 @@ class PdfBook {
 		}
 	}
 
+	pdfjsViewer() {
+		if (this.settings.pdfjsViewer) {
+			return this.settings.pdfjsViewer;
+		}
+
+		if (typeof globalThis !== "undefined" && globalThis.pdfjsViewer) {
+			return globalThis.pdfjsViewer;
+		}
+	}
+
 	async open(input) {
 		const pdfjs = this.pdfjsLib();
 		if (!pdfjs || typeof pdfjs.getDocument !== "function") {
@@ -240,6 +304,12 @@ class PdfBook {
 
 		this.pdf = await loadingTask.promise;
 		this.numPages = this.pdf.numPages;
+
+		try {
+			await this.initProgressWeights();
+		} catch (e) {
+			// NOOP
+		}
 
 		this.buildSpine();
 
@@ -375,8 +445,12 @@ class PdfBook {
 				}
 			}
 
-			if (!href && item.url && typeof item.url === "string") {
-				href = item.url;
+			if (
+				!href &&
+				((item.url && typeof item.url === "string") ||
+					(item.unsafeUrl && typeof item.unsafeUrl === "string"))
+			) {
+				href = item.url || item.unsafeUrl;
 			}
 
 			if (!href && children.length === 0) {
@@ -461,6 +535,191 @@ class PdfBook {
 		this.spine.loaded = true;
 	}
 
+	async initProgressWeights() {
+		if (!this.pdf) {
+			return;
+		}
+
+		const total = this.pdf.numPages || 0;
+		if (!total) {
+			return;
+		}
+
+		try {
+			const first = await this.pdf.getPage(1);
+			const viewport = first.getViewport({ scale: 1 });
+			const weight =
+				viewport &&
+				typeof viewport.width === "number" &&
+				isFinite(viewport.width) &&
+				typeof viewport.height === "number" &&
+				isFinite(viewport.height)
+					? viewport.width * viewport.height
+					: NaN;
+
+			this._progressBaseWeight =
+				weight && isFinite(weight) && weight > 0 ? weight : 1;
+		} catch (e) {
+			this._progressBaseWeight = 1;
+		}
+
+		this._progressDeltas = new Float64Array(total);
+		this._progressDeltaTree = new FenwickTree(total);
+	}
+
+	recordPageWeight(pageIndex, viewport) {
+		const total = this.numPages || 0;
+		if (!total || !this._progressDeltaTree || !this._progressDeltas) {
+			return;
+		}
+
+		const index =
+			typeof pageIndex === "number" && isFinite(pageIndex)
+				? Math.floor(pageIndex)
+				: -1;
+		if (index < 0 || index >= total) {
+			return;
+		}
+
+		const weight =
+			viewport &&
+			typeof viewport.width === "number" &&
+			isFinite(viewport.width) &&
+			typeof viewport.height === "number" &&
+			isFinite(viewport.height)
+				? viewport.width * viewport.height
+				: NaN;
+		if (!weight || !isFinite(weight) || weight <= 0) {
+			return;
+		}
+
+		const base =
+			typeof this._progressBaseWeight === "number" &&
+			isFinite(this._progressBaseWeight) &&
+			this._progressBaseWeight > 0
+				? this._progressBaseWeight
+				: 1;
+
+		const nextDelta = weight - base;
+		const prevDelta = this._progressDeltas[index];
+		const diff = nextDelta - prevDelta;
+		if (!diff || !isFinite(diff)) {
+			return;
+		}
+
+		this._progressDeltas[index] = nextDelta;
+		this._progressDeltaTree.add(index, diff);
+	}
+
+	progressDenominator() {
+		const total = this.numPages || 0;
+		if (total <= 1) {
+			return 0;
+		}
+
+		const base =
+			typeof this._progressBaseWeight === "number" &&
+			isFinite(this._progressBaseWeight) &&
+			this._progressBaseWeight > 0
+				? this._progressBaseWeight
+				: 1;
+
+		if (!this._progressDeltaTree || !this._progressDeltas) {
+			return (total - 1) * base;
+		}
+
+		const deltaTotal = this._progressDeltaTree.sum(total);
+		const deltaLast = this._progressDeltas[total - 1] || 0;
+		const deltaBeforeLast = deltaTotal - deltaLast;
+		return (total - 1) * base + deltaBeforeLast;
+	}
+
+	progressPrefixBefore(pageIndex) {
+		const total = this.numPages || 0;
+		if (!total) {
+			return 0;
+		}
+
+		const index =
+			typeof pageIndex === "number" && isFinite(pageIndex)
+				? Math.max(0, Math.min(total - 1, Math.floor(pageIndex)))
+				: 0;
+
+		const base =
+			typeof this._progressBaseWeight === "number" &&
+			isFinite(this._progressBaseWeight) &&
+			this._progressBaseWeight > 0
+				? this._progressBaseWeight
+				: 1;
+
+		const delta =
+			this._progressDeltaTree && this._progressDeltas
+				? this._progressDeltaTree.sum(index)
+				: 0;
+
+		return index * base + delta;
+	}
+
+	percentageFromPageIndex(pageIndex) {
+		const total = this.numPages || 0;
+		if (total <= 1) {
+			return 0;
+		}
+
+		const index =
+			typeof pageIndex === "number" && isFinite(pageIndex)
+				? Math.max(0, Math.min(total - 1, Math.floor(pageIndex)))
+				: 0;
+
+		const denom = this.progressDenominator();
+		if (!denom || !isFinite(denom) || denom <= 0) {
+			return Math.max(0, Math.min(1, index / Math.max(1, total - 1)));
+		}
+
+		return Math.max(0, Math.min(1, this.progressPrefixBefore(index) / denom));
+	}
+
+	pageIndexFromPercentage(percentage) {
+		const total = this.numPages || 0;
+		if (total <= 1) {
+			return 0;
+		}
+
+		if (typeof percentage !== "number" || !isFinite(percentage)) {
+			return 0;
+		}
+
+		if (percentage >= 1) {
+			return total - 1;
+		}
+
+		if (percentage <= 0) {
+			return 0;
+		}
+
+		const denom = this.progressDenominator();
+		if (!denom || !isFinite(denom) || denom <= 0) {
+			return Math.max(0, Math.min(total - 1, Math.ceil((total - 1) * percentage)));
+		}
+
+		const target = denom * percentage;
+
+		let lo = 0;
+		let hi = total - 1;
+
+		while (lo < hi) {
+			const mid = Math.floor((lo + hi) / 2);
+			const pos = this.progressPrefixBefore(mid);
+			if (pos >= target) {
+				hi = mid;
+			} else {
+				lo = mid + 1;
+			}
+		}
+
+		return lo;
+	}
+
 	createLocationsStub() {
 		const book = this;
 		return {
@@ -486,10 +745,16 @@ class PdfBook {
 				if (!total || typeof location !== "number") {
 					return null;
 				}
-				return Math.max(0, Math.min(1, location / Math.max(1, total - 1)));
+				return book.percentageFromPageIndex(location);
 			},
 			cfiFromLocation: (location) => {
-				return book.locations.cfiFromPercentage(location);
+				const total = book.numPages || 0;
+				if (!total || typeof location !== "number") {
+					return null;
+				}
+				const index = Math.max(0, Math.min(total - 1, Math.floor(location)));
+				const section = book.spine.get(index);
+				return section ? `epubcfi(${section.cfiBase})` : null;
 			},
 			cfiFromPercentage: (percentage) => {
 				const total = book.numPages || 0;
@@ -499,7 +764,7 @@ class PdfBook {
 				const isIndex = Math.floor(percentage) === percentage;
 				const index = isIndex
 					? Math.max(0, Math.min(total - 1, Math.floor(percentage)))
-					: Math.max(0, Math.min(total - 1, Math.floor(percentage * total)));
+					: book.pageIndexFromPercentage(percentage);
 				const section = book.spine.get(index);
 				return section ? `epubcfi(${section.cfiBase})` : null;
 			},
@@ -1448,6 +1713,7 @@ class PdfBook {
 				? window.devicePixelRatio
 				: 1;
 		const cssViewport = page.getViewport({ scale: 1 });
+		this.recordPageWeight(pageIndex - 1, cssViewport);
 		const viewport = page.getViewport({ scale: resolvedScale * deviceScale });
 
 		const canvas = document.createElement("canvas");
@@ -1545,7 +1811,7 @@ class PdfBook {
 						message: "Aborted",
 					};
 				}
-				textLayer = this.buildTextLayerHtml(textContent, cssViewport);
+				textLayer = await this.buildTextLayerHtml(textContent, cssViewport);
 			} catch (e) {
 				if (e && typeof e === "object" && e.name === "AbortError") {
 					throw e;
@@ -1575,6 +1841,7 @@ class PdfBook {
 				annotationLayer = await this.buildAnnotationLayerHtml(
 					annotations,
 					cssViewport,
+					page,
 				);
 			} catch (e) {
 				if (e && typeof e === "object" && e.name === "AbortError") {
@@ -1593,10 +1860,47 @@ class PdfBook {
 		};
 	}
 
-	buildTextLayerHtml(textContent, viewport) {
+	async buildTextLayerHtml(textContent, viewport) {
+		const viewer = this.pdfjsViewer();
+		const pdfjs = this.pdfjsLib();
+		const renderTextLayer =
+			(viewer && typeof viewer.renderTextLayer === "function"
+				? viewer.renderTextLayer
+				: undefined) ||
+			(pdfjs && typeof pdfjs.renderTextLayer === "function" ? pdfjs.renderTextLayer : undefined);
+
+		if (renderTextLayer) {
+			try {
+				const container = document.createElement("div");
+				container.className = "textLayer";
+
+				const task = renderTextLayer({
+					textContent,
+					container,
+					viewport,
+					textDivs: [],
+					textContentItemsStr: [],
+					enhanceTextSelection: true,
+				});
+
+				if (task && task.promise && typeof task.promise.then === "function") {
+					await task.promise;
+				} else if (task && typeof task.then === "function") {
+					await task;
+				}
+
+				const end = document.createElement("div");
+				end.className = "endOfContent";
+				container.appendChild(end);
+
+				return container.outerHTML;
+			} catch (e) {
+				// Fallback to a minimal, self-contained HTML layer
+			}
+		}
+
 		const items =
 			textContent && Array.isArray(textContent.items) ? textContent.items : [];
-		const pdfjs = this.pdfjsLib();
 		const transform =
 			pdfjs && pdfjs.Util && typeof pdfjs.Util.transform === "function"
 				? pdfjs.Util.transform
@@ -1649,8 +1953,111 @@ class PdfBook {
 		return `<div class=\"textLayer\">${spans.join("")}<div class=\"endOfContent\"></div></div>`;
 	}
 
-	async buildAnnotationLayerHtml(annotations, viewport) {
+	async buildAnnotationLayerHtml(annotations, viewport, page) {
 		const items = Array.isArray(annotations) ? annotations : [];
+
+		const viewer = this.pdfjsViewer();
+		const pdfjs = this.pdfjsLib();
+		const AnnotationLayer =
+			(viewer && viewer.AnnotationLayer) || (pdfjs && pdfjs.AnnotationLayer);
+
+		if (
+			AnnotationLayer &&
+			typeof AnnotationLayer.render === "function" &&
+			page &&
+			typeof page.getViewport === "function"
+		) {
+			try {
+				const toDestKey = (dest) => {
+					if (!dest) {
+						return;
+					}
+					if (typeof dest === "string") {
+						return `name:${dest}`;
+					}
+					if (!Array.isArray(dest) || dest.length === 0) {
+						return;
+					}
+					const ref = dest[0];
+					if (typeof ref === "number" && isFinite(ref)) {
+						return `page:${Math.floor(ref)}`;
+					}
+					if (
+						ref &&
+						typeof ref === "object" &&
+						typeof ref.num === "number" &&
+						typeof ref.gen === "number"
+					) {
+						return `ref:${ref.num}:${ref.gen}`;
+					}
+					try {
+						return `json:${JSON.stringify(dest)}`;
+					} catch (e) {
+						return;
+					}
+				};
+
+				const destToHref = new Map();
+				for (let i = 0; i < items.length; i += 1) {
+					const item = items[i];
+					if (!item || !item.dest) {
+						continue;
+					}
+
+					const key = toDestKey(item.dest);
+					if (!key || destToHref.has(key)) {
+						continue;
+					}
+
+					const index = await this.resolveDestToPageIndex(item.dest);
+					if (typeof index === "number") {
+						destToHref.set(key, this.hrefFromPageIndex(index));
+					}
+				}
+
+				const linkService = {
+					getDestinationHash: (dest) => {
+						const key = toDestKey(dest);
+						const href = key ? destToHref.get(key) : undefined;
+						return href || "";
+					},
+					navigateTo: () => {
+						// Navigation is handled by epub.js link interception
+					},
+					getAnchorUrl: (anchor) => anchor,
+					setHash: () => {
+						// NOOP
+					},
+				};
+
+				const div = document.createElement("div");
+				div.className = "annotationLayer";
+
+				const task = AnnotationLayer.render({
+					annotations: items,
+					div,
+					page,
+					viewport,
+					linkService,
+					renderForms: false,
+				});
+
+				if (task && task.promise && typeof task.promise.then === "function") {
+					await task.promise;
+				} else if (task && typeof task.then === "function") {
+					await task;
+				}
+
+				if (!div.children || div.children.length === 0) {
+					return "";
+				}
+
+				return div.outerHTML;
+			} catch (e) {
+				// Fallback to a minimal, self-contained HTML layer
+			}
+		}
+
 		const links = [];
 
 		for (let i = 0; i < items.length; i += 1) {
@@ -1665,8 +2072,11 @@ class PdfBook {
 			}
 
 			let href = undefined;
-			if (item.url && typeof item.url === "string") {
-				href = item.url;
+			if (
+				(item.url && typeof item.url === "string") ||
+				(item.unsafeUrl && typeof item.unsafeUrl === "string")
+			) {
+				href = item.url || item.unsafeUrl;
 			} else if (item.dest) {
 				const index = await this.resolveDestToPageIndex(item.dest);
 				if (typeof index === "number") {
@@ -1771,6 +2181,9 @@ class PdfBook {
 		}
 		this.pdf = undefined;
 		this.numPages = 0;
+		this._progressBaseWeight = undefined;
+		this._progressDeltas = undefined;
+		this._progressDeltaTree = undefined;
 		this.resources = undefined;
 		this.locations = undefined;
 		this.pageList = undefined;
