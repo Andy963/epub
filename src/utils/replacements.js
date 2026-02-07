@@ -88,11 +88,17 @@ export function replaceLinks(contents, fn) {
 			return;
 		}
 
-		var absolute = (href.indexOf("://") > -1);
+		var absolute = (href.indexOf("://") > -1) || /^[a-zA-Z][a-zA-Z+.-]*:/.test(href);
 
 		if(absolute){
 
 			link.setAttribute("target", "_blank");
+			link.addEventListener("click", function(event){
+				if (event) {
+					event.preventDefault();
+				}
+				fn(href, link, event);
+			});
 
 		}else{
 			var linkUrl;

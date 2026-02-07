@@ -51,6 +51,7 @@ export const EVENTS = {
     MARK_CLICKED : "markClicked",
     SELECTED : "selected",
     FOOTNOTE : "footnote",
+    EXTERNAL_LINK: "externalLink",
     LAYOUT: "layout"
   },
   LAYOUT : {

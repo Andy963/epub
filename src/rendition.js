@@ -62,6 +62,7 @@ class Rendition {
 			defaultDirection: "ltr",
 			allowScriptedContent: false,
 			allowPopups: false,
+			openExternalLinks: true,
 			prefetch: false,
 			footnotes: false,
 			fixedLayout: null
@@ -703,6 +704,43 @@ class Rendition {
 	}
 
 	/**
+	 * Get or set fixed layout zoom
+	 * @param {number | "fit-width" | "fit-page"} [zoom]
+	 * @returns {number | "fit-width" | "fit-page" | undefined}
+	 */
+	fixedLayoutZoom(zoom) {
+		if (typeof zoom !== "undefined") {
+			const isValidNumber =
+				typeof zoom === "number" && isFinite(zoom) && zoom > 0;
+			const isValidPreset = zoom === "fit-width" || zoom === "fit-page";
+			if (!isValidNumber && !isValidPreset) {
+				return this.fixedLayoutZoom();
+			}
+
+			if (!this.settings.fixedLayout || typeof this.settings.fixedLayout !== "object") {
+				this.settings.fixedLayout = {};
+			}
+
+			this.settings.fixedLayout.zoom = zoom;
+
+			if (this._layout && this._layout.settings) {
+				this._layout.settings.fixedLayoutZoom = zoom;
+				if (typeof this._layout.update === "function") {
+					this._layout.update({ fixedLayoutZoom: zoom });
+				}
+			}
+
+			if (this.manager && this._layout && typeof this.manager.setLayout === "function") {
+				this.manager.setLayout(this._layout);
+			}
+		}
+
+		return this.settings.fixedLayout && typeof this.settings.fixedLayout === "object"
+			? this.settings.fixedLayout.zoom
+			: undefined;
+	}
+
+	/**
 	 * Adjust if the rendition uses spreads
 	 * @param  {string} spread none | auto (TODO: implement landscape, portrait, both)
 	 * @param  {int} [min] min width to use spreads at
@@ -1074,11 +1112,42 @@ class Rendition {
 		if (contents) {
 			contents.on(EVENTS.CONTENTS.LINK_CLICKED, (href, link, event) => {
 				let relative = this.book.path.relative(href);
+				let scheme;
+				if (typeof relative === "string") {
+					const match = relative.match(/^([a-zA-Z][a-zA-Z+.-]*):/);
+					scheme = match && match[1] ? match[1].toLowerCase() : undefined;
+				}
+				const isExternal = Boolean(scheme);
+				const allowAutoOpen = scheme === "http" || scheme === "https";
 
 				const footnotes = this.settings.footnotes;
 				const footnotesEnabled = footnotes === true || (footnotes && typeof footnotes === "object");
 				const detectFootnotes = !(footnotes && typeof footnotes === "object" && footnotes.detect === false);
 				const extract = !(footnotes && typeof footnotes === "object" && footnotes.extract === false);
+
+				if (isExternal) {
+					if (event && typeof event.preventDefault === "function") {
+						event.preventDefault();
+					}
+
+					this.emit(EVENTS.RENDITION.EXTERNAL_LINK, {
+						href: relative,
+						link,
+						contents,
+						event
+					});
+
+					if (this.settings.openExternalLinks !== false && allowAutoOpen) {
+						try {
+							if (typeof globalThis !== "undefined" && typeof globalThis.open === "function") {
+								globalThis.open(relative, "_blank");
+							}
+						} catch (e) {
+							// NOOP
+						}
+					}
+					return;
+				}
 
 				if (footnotesEnabled && link) {
 					const { yes, maybe } = classifyFootnoteReference(link, contents.window);

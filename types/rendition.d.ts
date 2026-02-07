@@ -28,6 +28,7 @@ export interface RenditionOptions {
   defaultDirection?: string,
   allowScriptedContent?: boolean,
   allowPopups?: boolean,
+  openExternalLinks?: boolean,
   prefetch?: boolean | number,
   footnotes?: boolean | { detect?: boolean, extract?: boolean },
   fixedLayout?: null | { zoom?: number | "fit-width" | "fit-page" }
@@ -117,6 +118,9 @@ export default class Rendition {
     injectStylesheet(doc: Document, section: Section): void;
 
     layout(settings: any): any;
+
+    fixedLayoutZoom(): number | "fit-width" | "fit-page" | undefined;
+    fixedLayoutZoom(zoom: number | "fit-width" | "fit-page"): number | "fit-width" | "fit-page" | undefined;
 
     located(location: ViewLocation[]): Location;
 
