@@ -1,7 +1,31 @@
 const IDPF_FONT_ALGORITHM = "http://www.idpf.org/2008/embedding";
 const ADOBE_FONT_ALGORITHM = "http://ns.adobe.com/pdf/enc#RC";
 
-function normalizeRootDirectory(value) {
+export type FontAlgorithm =
+	| typeof IDPF_FONT_ALGORITHM
+	| typeof ADOBE_FONT_ALGORITHM;
+
+interface XmlElementLike {
+	localName?: string | null;
+	getAttribute?: (name: string) => string | null;
+	getElementsByTagName?: (name: string) => ArrayLike<XmlElementLike>;
+}
+
+interface XmlDocumentLike {
+	getElementsByTagName?: (name: string) => ArrayLike<XmlElementLike>;
+}
+
+export interface FontObfuscationOptions {
+	uniqueIdentifier?: string;
+	items?: Map<string, FontAlgorithm>;
+	rootDirectory?: string;
+}
+
+export interface FontObfuscationFromEncryptionOptions {
+	rootDirectory?: string;
+}
+
+function normalizeRootDirectory(value: unknown): string {
 	if (!value || typeof value !== "string") {
 		return "";
 	}
@@ -27,7 +51,7 @@ function normalizeRootDirectory(value) {
 	}
 }
 
-function normalizeResourcePath(value, rootDirectory) {
+function normalizeResourcePath(value: unknown, rootDirectory?: string): string {
 	if (!value || typeof value !== "string") {
 		return "";
 	}
@@ -56,14 +80,14 @@ function normalizeResourcePath(value, rootDirectory) {
 	return stripped;
 }
 
-function stripXmlWhitespace(value) {
+function stripXmlWhitespace(value: unknown): string {
 	if (!value || typeof value !== "string") {
 		return "";
 	}
 	return value.replace(/\s/g, "");
 }
 
-function toUtf8Bytes(value) {
+function toUtf8Bytes(value: string): Uint8Array {
 	if (typeof TextEncoder !== "undefined") {
 		return new TextEncoder().encode(value);
 	}
@@ -84,11 +108,11 @@ function toUtf8Bytes(value) {
 	return new Uint8Array(bytes);
 }
 
-function rotl(value, shift) {
+function rotl(value: number, shift: number): number {
 	return (value << shift) | (value >>> (32 - shift));
 }
 
-function sha1(bytes) {
+function sha1(bytes: Uint8Array): Uint8Array {
 	// Based on FIPS PUB 180-4
 	const length = bytes.length;
 	const bitLengthHi = Math.floor((length * 8) / 0x100000000);
@@ -180,7 +204,7 @@ function sha1(bytes) {
 	return out;
 }
 
-function uuidToBytes(value) {
+function uuidToBytes(value: string): Uint8Array | undefined {
 	if (!value || typeof value !== "string") {
 		return;
 	}
@@ -202,11 +226,7 @@ function uuidToBytes(value) {
 	return bytes;
 }
 
-function xorBytes(bytes, key, maxBytes) {
-	if (!bytes || !(bytes instanceof Uint8Array)) {
-		return bytes;
-	}
-
+function xorBytes(bytes: Uint8Array, key: Uint8Array | undefined, maxBytes: number): Uint8Array {
 	if (!key || !(key instanceof Uint8Array) || key.length === 0) {
 		return bytes;
 	}
@@ -220,7 +240,13 @@ function xorBytes(bytes, key, maxBytes) {
 }
 
 class FontObfuscation {
-	constructor(options) {
+	uniqueIdentifier: string;
+	items: Map<string, FontAlgorithm>;
+	rootDirectory: string;
+	private idpfKey: Uint8Array | undefined;
+	private adobeKey: Uint8Array | undefined;
+
+	constructor(options?: FontObfuscationOptions) {
 		options = options || {};
 		this.uniqueIdentifier = options.uniqueIdentifier || "";
 		this.items = options.items || new Map();
@@ -231,8 +257,8 @@ class FontObfuscation {
 		this.adobeKey = uuidToBytes(stripped);
 	}
 
-	static parseEncryption(encryptionDocument) {
-		const items = new Map();
+	static parseEncryption(encryptionDocument: XmlDocumentLike | undefined | null): Map<string, FontAlgorithm> {
+		const items = new Map<string, FontAlgorithm>();
 
 		if (!encryptionDocument || !encryptionDocument.getElementsByTagName) {
 			return items;
@@ -245,10 +271,13 @@ class FontObfuscation {
 				continue;
 			}
 
-			let algorithm;
-			let cipherReferences = [];
+			let algorithm: string | undefined;
+			let cipherReferences: string[] = [];
 
-			const children = el.getElementsByTagName("*");
+			const children =
+				el.getElementsByTagName && typeof el.getElementsByTagName === "function"
+					? el.getElementsByTagName("*")
+					: [];
 			for (let j = 0; j < children.length; j += 1) {
 				const child = children[j];
 				if (!child || !child.localName) {
@@ -256,11 +285,13 @@ class FontObfuscation {
 				}
 
 				if (!algorithm && child.localName === "EncryptionMethod") {
-					algorithm = child.getAttribute("Algorithm") || undefined;
+					algorithm =
+						(child.getAttribute && child.getAttribute("Algorithm")) || undefined;
 				}
 
 				if (child.localName === "CipherReference") {
-					const uri = child.getAttribute("URI") || "";
+					const uri =
+						(child.getAttribute && child.getAttribute("URI")) || "";
 					if (uri) {
 						cipherReferences.push(uri);
 					}
@@ -278,10 +309,11 @@ class FontObfuscation {
 				continue;
 			}
 
+			const alg = algorithm as FontAlgorithm;
 			cipherReferences.forEach((uri) => {
 				const normalized = normalizeResourcePath(uri);
 				if (normalized) {
-					items.set(normalized, algorithm);
+					items.set(normalized, alg);
 				}
 			});
 		}
@@ -289,7 +321,11 @@ class FontObfuscation {
 		return items;
 	}
 
-	static fromEncryption(encryptionDocument, uniqueIdentifier, options) {
+	static fromEncryption(
+		encryptionDocument: XmlDocumentLike | undefined | null,
+		uniqueIdentifier: string | undefined,
+		options?: FontObfuscationFromEncryptionOptions,
+	): FontObfuscation | undefined {
 		const items = FontObfuscation.parseEncryption(encryptionDocument);
 		if (!items || items.size === 0) {
 			return;
@@ -302,12 +338,12 @@ class FontObfuscation {
 		});
 	}
 
-	isObfuscated(path) {
+	isObfuscated(path: string): boolean {
 		const normalized = normalizeResourcePath(path, this.rootDirectory);
 		return normalized ? this.items.has(normalized) : false;
 	}
 
-	deobfuscate(path, bytes) {
+	deobfuscate(path: string, bytes: Uint8Array): Uint8Array {
 		const normalized = normalizeResourcePath(path, this.rootDirectory);
 		const algorithm = normalized ? this.items.get(normalized) : undefined;
 
