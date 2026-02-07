@@ -6,7 +6,12 @@ import {qs, qsa } from "./utils/core";
  * @param {document} displayOptionsDocument XML
  */
 class DisplayOptions {
-	constructor(displayOptionsDocument) {
+	interactive: string | undefined;
+	fixedLayout: string | undefined;
+	openToSpread: string | undefined;
+	orientationLock: string | undefined;
+
+	constructor(displayOptionsDocument?: any) {
 		this.interactive = "";
 		this.fixedLayout = "";
 		this.openToSpread = "";
@@ -22,7 +27,7 @@ class DisplayOptions {
 	 * @param  {document} displayOptionsDocument XML
 	 * @return {DisplayOptions} self
 	 */
-	parse(displayOptionsDocument) {
+	parse(displayOptionsDocument: any): this {
 		if(!displayOptionsDocument) {
 			return this;
 		}
@@ -59,7 +64,7 @@ class DisplayOptions {
 		return this;
 	}
 
-	destroy() {
+	destroy(): void {
 		this.interactive = undefined;
 		this.fixedLayout = undefined;
 		this.openToSpread = undefined;
