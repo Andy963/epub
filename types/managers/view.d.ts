@@ -3,7 +3,7 @@ import Contents from "../contents";
 import Layout from "../layout";
 
 export interface ViewSettings {
-  ignoreClass?: string,
+  ignoreClass?: string | ((node: Node) => boolean),
   axis?: string,
   flow?: string,
   layout?: Layout,
