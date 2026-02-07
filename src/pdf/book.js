@@ -82,10 +82,19 @@ class PdfBook {
 			metadata: {
 				title: "",
 				creator: "",
+				description: "",
+				pubdate: "",
+				publisher: "",
+				identifier: "",
+				language: "",
+				rights: "",
+				modified_date: "",
 				layout: "pre-paginated",
+				orientation: "",
 				spread: "none",
 				direction: "ltr",
 				flow: "paginated",
+				viewport: "",
 			},
 		};
 
@@ -260,11 +269,43 @@ class PdfBook {
 		try {
 			const data = await this.pdf.getMetadata();
 			const info = data && data.info ? data.info : {};
+			const xmp =
+				data && data.metadata && typeof data.metadata.get === "function"
+					? data.metadata
+					: undefined;
+			const getXmp = (key) => {
+				if (!xmp) {
+					return;
+				}
+				try {
+					const value = xmp.get(key);
+					if (typeof value === "undefined" || value === null) {
+						return;
+					}
+					if (typeof value === "string") {
+						return value;
+					}
+					if (Array.isArray(value)) {
+						return value.filter(Boolean).join(", ");
+					}
+					return value.toString ? value.toString() : String(value);
+				} catch (e) {
+					return;
+				}
+			};
 			const metadata = extend(
 				this.package && this.package.metadata ? this.package.metadata : {},
 				{
-					title: (info.Title || info.title || "").toString(),
-					creator: (info.Author || info.author || "").toString(),
+					title: (getXmp("dc:title") || info.Title || info.title || "").toString(),
+					creator: (getXmp("dc:creator") || info.Author || info.author || "").toString(),
+					contributor: getXmp("dc:contributor"),
+					description: (getXmp("dc:description") || info.Subject || info.subject || "").toString(),
+					language: (getXmp("dc:language") || "").toString(),
+					publisher: (getXmp("dc:publisher") || "").toString(),
+					subject: (getXmp("dc:subject") || "").toString(),
+					identifier: (getXmp("dc:identifier") || "").toString(),
+					source: (getXmp("dc:source") || "").toString(),
+					rights: (getXmp("dc:rights") || "").toString(),
 				},
 			);
 
