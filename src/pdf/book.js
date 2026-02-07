@@ -165,11 +165,41 @@ class PdfBook {
 				httpHeaders: this.settings.httpHeaders,
 			});
 		} else if (input instanceof Blob) {
-			const buffer = await input.arrayBuffer();
-			loadingTask = pdfjs.getDocument({
-				data: buffer,
-				password: this.settings.password,
-			});
+			const useRangeTransport =
+				pdfjs.PDFDataRangeTransport &&
+				typeof input.size === "number" &&
+				input.size > 0 &&
+				typeof input.slice === "function";
+
+			if (useRangeTransport) {
+				const transport = new pdfjs.PDFDataRangeTransport(input.size, []);
+				transport.requestDataRange = (begin, end) => {
+					input
+						.slice(begin, end)
+						.arrayBuffer()
+						.then((chunk) => {
+							transport.onDataRange(begin, chunk);
+						})
+						.catch((error) => {
+							try {
+								transport.onError(error);
+							} catch (e) {
+								// NOOP
+							}
+						});
+				};
+
+				loadingTask = pdfjs.getDocument({
+					range: transport,
+					password: this.settings.password,
+				});
+			} else {
+				const buffer = await input.arrayBuffer();
+				loadingTask = pdfjs.getDocument({
+					data: buffer,
+					password: this.settings.password,
+				});
+			}
 		} else if (input instanceof ArrayBuffer) {
 			loadingTask = pdfjs.getDocument({
 				data: input,
