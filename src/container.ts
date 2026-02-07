@@ -7,10 +7,14 @@ import {qs} from "./utils/core";
  * @param {document} [containerDocument] xml document
  */
 class Container {
-	constructor(containerDocument) {
-		this.packagePath = '';
-		this.directory = '';
-		this.encoding = '';
+	packagePath: string | undefined;
+	directory: string | undefined;
+	encoding: string | undefined;
+
+	constructor(containerDocument?: any) {
+		this.packagePath = "";
+		this.directory = "";
+		this.encoding = "";
 
 		if (containerDocument) {
 			this.parse(containerDocument);
@@ -35,12 +39,17 @@ class Container {
 			throw new Error("No RootFile Found");
 		}
 
-		this.packagePath = rootfile.getAttribute("full-path");
+		const packagePath = rootfile.getAttribute("full-path");
+		if (!packagePath) {
+			throw new Error("No RootFile Full Path Found");
+		}
+
+		this.packagePath = packagePath;
 		this.directory = path.dirname(this.packagePath);
 		this.encoding = containerDocument.xmlEncoding;
 	}
 
-	destroy() {
+	destroy(): void {
 		this.packagePath = undefined;
 		this.directory = undefined;
 		this.encoding = undefined;
