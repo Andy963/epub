@@ -212,7 +212,7 @@ class ResourceCache<V = unknown> {
 		this.finalize(key, entry);
 	}
 
-	private releaseParent(parentKey: string): void {
+	releaseParent(parentKey: string): void {
 		const parentChildren = this.children.get(parentKey);
 		if (!parentChildren) {
 			return;

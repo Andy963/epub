@@ -633,12 +633,12 @@ export function walk(node,callback, ..._rest){
  * @returns {string}
  * @memberof Core
  */
-export function blob2base64(blob) {
-	return new Promise(function(resolve, reject) {
+export function blob2base64(blob: Blob): Promise<string> {
+	return new Promise<string>(function(resolve, reject) {
 		var reader = new FileReader();
 		reader.readAsDataURL(blob);
 		reader.onloadend = function() {
-			resolve(reader.result);
+			resolve(reader.result as any);
 		};
 	});
 }

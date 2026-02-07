@@ -8,7 +8,39 @@ import ResourceCache from "./core/resource-cache";
 
 const XLINK_NS = "http://www.w3.org/1999/xlink";
 
-async function replaceSeries(str, regex, asyncReplacer) {
+type Manifest = Record<string, ManifestItem>;
+
+interface ManifestItem {
+	href: string;
+	type?: string;
+	[key: string]: any;
+}
+
+type ResourcesResolver = (href: string) => string;
+
+type ResourcesRequester = (url: string, type?: string | null) => Promise<any>;
+
+interface ResourcesArchive {
+	createUrl: (url: string, options?: { base64?: boolean }) => Promise<string>;
+	getText: (url: string, encoding?: string) => Promise<string> | undefined;
+	getBlob: (url: string, mimeType?: string) => Promise<Blob> | undefined;
+	getBase64: (url: string, mimeType?: string) => Promise<string> | undefined;
+}
+
+export interface ResourcesSettings {
+	replacements?: "none" | "base64" | "blobUrl" | string;
+	archive?: ResourcesArchive;
+	resolver?: ResourcesResolver;
+	request?: ResourcesRequester;
+	lazy?: boolean;
+	performance?: any;
+}
+
+async function replaceSeries(
+	str: string,
+	regex: RegExp,
+	asyncReplacer: (...args: any[]) => Promise<string> | string
+): Promise<string> {
 	let result = "";
 	let lastIndex = 0;
 	let match;
@@ -35,7 +67,19 @@ async function replaceSeries(str, regex, asyncReplacer) {
  * @param {method} [options.resolver]
  */
 class Resources {
-	constructor(manifest, options) {
+	settings: ResourcesSettings;
+	resourceCache: ResourceCache<string> | undefined;
+	manifest: Manifest | undefined;
+	resources: ManifestItem[] | undefined;
+	replacementUrls: Array<string | undefined> | undefined;
+	html: ManifestItem[] | undefined;
+	assets: ManifestItem[] | undefined;
+	css: ManifestItem[] | undefined;
+	urls: string[] | undefined;
+	cssUrls: string[] | undefined;
+	resolvedManifest: Map<string, ManifestItem> | undefined;
+
+	constructor(manifest: Manifest, options?: ResourcesSettings) {
 		this.settings = {
 			replacements: (options && options.replacements) || "base64",
 			archive: (options && options.archive),
@@ -56,7 +100,7 @@ class Resources {
 	 * Process resources
 	 * @param {Manifest} manifest
 	 */
-	process(manifest){
+	process(manifest: Manifest): void {
 		this.manifest = manifest;
 		this.resources = Object.keys(manifest).
 			map(function (key){
@@ -81,7 +125,7 @@ class Resources {
 	 * Split resources by type
 	 * @private
 	 */
-	split(){
+	split(): void {
 
 		// HTML
 		this.html = this.resources.
@@ -114,7 +158,7 @@ class Resources {
 	 * Convert split resources into Urls
 	 * @private
 	 */
-	splitUrls(){
+	splitUrls(): void {
 
 		// All Assets Urls
 		this.urls = this.assets.
@@ -129,7 +173,7 @@ class Resources {
 
 	}
 
-	buildResolvedManifest() {
+	buildResolvedManifest(): void {
 		this.resolvedManifest = new Map();
 		if (!this.settings || typeof this.settings.resolver !== "function") {
 			return;
@@ -151,7 +195,7 @@ class Resources {
 	 * @param {string} url
 	 * @return {Promise<string>} Promise resolves with url string
 	 */
-	createUrl (url) {
+	createUrl (url: string): Promise<string> {
 		var parsedUrl = new Url(url);
 		var mimeType = mime.lookup(parsedUrl.filename);
 
@@ -159,11 +203,11 @@ class Resources {
 			return this.settings.archive.createUrl(url, {"base64": (this.settings.replacements === "base64")});
 		} else {
 			if (this.settings.replacements === "base64") {
-				return this.settings.request(url, "blob").then((blob) => {
+				return this.settings.request!(url, "blob").then((blob) => {
 					return blob2base64(blob);
 				});
 			} else {
-				return this.settings.request(url, 'blob').then((blob) => {
+				return this.settings.request!(url, 'blob').then((blob) => {
 					return createBlobUrl(blob, mimeType);
 				})
 			}
@@ -174,15 +218,15 @@ class Resources {
 	 * Create blob urls for all the assets
 	 * @return {Promise}         returns replacement urls
 	 */
-	replacements(){
+	replacements(): Promise<Array<string | undefined>> {
 		if (this.settings.replacements === "none") {
 			return new Promise(function(resolve) {
-				resolve(this.urls);
+				resolve(this.urls as any);
 			}.bind(this));
 		}
 
-		var replacements = this.urls.map( (url) => {
-				var absolute = this.settings.resolver(url);
+		var replacements = this.urls!.map( (url) => {
+				var absolute = this.settings.resolver!(url);
 
 				return this.createUrl(absolute).
 					catch((err) => {
@@ -196,7 +240,7 @@ class Resources {
 				this.replacementUrls = replacementUrls.map((url) => {
 					return typeof url === "string" ? url : undefined;
 				});
-				return this.replacementUrls;
+				return this.replacementUrls!;
 			});
 	}
 
@@ -207,7 +251,7 @@ class Resources {
 	 * @param  {method} [resolver]
 	 * @return {Promise}
 	 */
-	replaceCss(archive, resolver){
+	replaceCss(archive?: ResourcesArchive, resolver?: ResourcesResolver): Promise<any[]> {
 		var replaced = [];
 		archive = archive || this.settings.archive;
 		resolver = resolver || this.settings.resolver;
@@ -233,7 +277,7 @@ class Resources {
 	 * @param  {string} href the original css file
 	 * @return {Promise}  returns a BlobUrl to the new CSS file or a data url
 	 */
-	createCssFile(href){
+	createCssFile(href: string, archive?: ResourcesArchive, resolver?: ResourcesResolver): Promise<string | undefined> {
 		var newUrl;
 
 		if (path.isAbsolute(href)) {
@@ -242,20 +286,23 @@ class Resources {
 			});
 		}
 
-		var absolute = this.settings.resolver(href);
+		archive = archive || this.settings.archive;
+		resolver = resolver || this.settings.resolver;
+
+		var absolute = resolver!(href);
 
 		// Get the text of the css file from the archive
 		var textResponse;
 
-		if (this.settings.archive) {
-			textResponse = this.settings.archive.getText(absolute);
+		if (archive) {
+			textResponse = archive.getText(absolute);
 		} else {
-			textResponse = this.settings.request(absolute, "text");
+			textResponse = this.settings.request!(absolute, "text");
 		}
 
 		// Get asset links relative to css file
-		var relUrls = this.urls.map( (assetHref) => {
-			var resolved = this.settings.resolver(assetHref);
+		var relUrls = this.urls!.map( (assetHref) => {
+			var resolved = resolver!(assetHref);
 			var relative = new Path(absolute).relative(resolved);
 
 			return relative;
@@ -295,13 +342,13 @@ class Resources {
 	 * @param  {resolver} [resolver]
 	 * @return {string[]} array with relative Urls
 	 */
-	relativeTo(absolute, resolver){
+	relativeTo(absolute: string, resolver?: ResourcesResolver): string[] {
 		resolver = resolver || this.settings.resolver;
 
 		// Get Urls relative to current sections
-		return this.urls.
+		return this.urls!.
 			map(function(href) {
-				var resolved = resolver(href);
+				var resolved = resolver!(href);
 				var relative = new Path(absolute).relative(resolved);
 				return relative;
 			}.bind(this));
@@ -312,8 +359,8 @@ class Resources {
 	 * @param  {string} path
 	 * @return {string} url
 	 */
-	get(path) {
-		var indexInUrls = this.urls.indexOf(path);
+	get(path: string): Promise<string> | undefined {
+		var indexInUrls = this.urls!.indexOf(path);
 		if (indexInUrls === -1) {
 			return;
 		}
@@ -333,7 +380,7 @@ class Resources {
 	 * @param  {string} [url]   url to resolve to
 	 * @return {string}         content with urls substituted
 	 */
-	substitute(content, url) {
+	substitute(content: string, url?: string): string {
 		var relUrls;
 		if (url) {
 			relUrls = this.relativeTo(url);
@@ -343,7 +390,7 @@ class Resources {
 		return substitute(content, relUrls, this.replacementUrls);
 	}
 
-	replace(output, section) {
+	replace(output: string, section: any): Promise<string> {
 		if (!this.settings || !this.settings.lazy) {
 			section.output = output;
 			return Promise.resolve(output);
@@ -367,14 +414,14 @@ class Resources {
 		});
 	}
 
-	unload(parentKey) {
+	unload(parentKey: string): void {
 		if (!this.resourceCache || !parentKey) {
 			return;
 		}
 		this.resourceCache.releaseParent(parentKey);
 	}
 
-	isExternalUrl(href) {
+	isExternalUrl(href: string): boolean {
 		if (!href || typeof href !== "string") {
 			return true;
 		}
@@ -386,7 +433,7 @@ class Resources {
 		return /^[a-z][a-z0-9+.-]*:/i.test(href);
 	}
 
-	resolveUrl(href, baseUrl) {
+	resolveUrl(href: string, baseUrl: string): string {
 		const resolved = new Url(href, baseUrl);
 		if (resolved.origin) {
 			return resolved.origin + resolved.Path.path;
@@ -394,7 +441,7 @@ class Resources {
 		return resolved.Path.path;
 	}
 
-	loadText(url) {
+	loadText(url: string): Promise<string> {
 		if (this.settings.archive) {
 			const response = this.settings.archive.getText(url);
 			if (!response) {
@@ -403,10 +450,10 @@ class Resources {
 			return response;
 		}
 
-		return this.settings.request(url, "text");
+		return this.settings.request!(url, "text");
 	}
 
-	loadBlob(url, mimeType) {
+	loadBlob(url: string, mimeType: string): Promise<Blob> {
 		if (this.settings.archive) {
 			const response = this.settings.archive.getBlob(url, mimeType);
 			if (!response) {
@@ -415,10 +462,10 @@ class Resources {
 			return response;
 		}
 
-		return this.settings.request(url, "blob");
+		return this.settings.request!(url, "blob");
 	}
 
-	createTextUrl(text, mediaType) {
+	createTextUrl(text: string, mediaType: string): Promise<string> {
 		if (this.settings.replacements === "base64") {
 			return blob2base64(new Blob([text], { type: mediaType }));
 		}
@@ -426,7 +473,7 @@ class Resources {
 		return Promise.resolve(createBlobUrl(text, mediaType));
 	}
 
-	createBinaryUrl(url, mediaType) {
+	createBinaryUrl(url: string, mediaType: string): Promise<string> {
 		if (this.settings.replacements === "base64") {
 			if (this.settings.archive) {
 				const response = this.settings.archive.getBase64(url, mediaType);
@@ -438,11 +485,12 @@ class Resources {
 			return this.loadBlob(url, mediaType).then((blob) => blob2base64(blob));
 		}
 
-		const _URL = window.URL || window.webkitURL || window.mozURL;
+		const w = window as any;
+		const _URL = window.URL || w.webkitURL || w.mozURL;
 		return this.loadBlob(url, mediaType).then((blob) => _URL.createObjectURL(blob));
 	}
 
-	isReplaceableType(mediaType) {
+	isReplaceableType(mediaType: string): boolean {
 		return (
 			mediaType === "text/css" ||
 			mediaType === "application/xhtml+xml" ||
@@ -451,7 +499,7 @@ class Resources {
 		);
 	}
 
-	loadHref(href, baseUrl, parentKey, parents) {
+	loadHref(href: string, baseUrl: string, parentKey: string, parents?: string[]): Promise<string> {
 		if (!href || typeof href !== "string") {
 			return Promise.resolve(href);
 		}
@@ -473,7 +521,7 @@ class Resources {
 		return this.loadItem(resolved, item, parentKey, parents || []).catch(() => href);
 	}
 
-	loadItem(resolvedUrl, item, parentKey, parents) {
+	loadItem(resolvedUrl: string, item: ManifestItem, parentKey: string, parents?: string[]): Promise<string> {
 		if (!this.resourceCache) {
 			return Promise.resolve(resolvedUrl);
 		}
@@ -483,7 +531,7 @@ class Resources {
 		});
 	}
 
-	async createItem(resolvedUrl, item, parents) {
+	async createItem(resolvedUrl: string, item: ManifestItem, parents?: string[]): Promise<string> {
 		const mediaType = item && item.type ? item.type : mime.lookup(new Url(resolvedUrl).filename);
 		const nextParents = (parents || []).concat(resolvedUrl);
 
@@ -495,14 +543,20 @@ class Resources {
 				return this.createTextUrl(replaced, mediaType);
 			}
 
-			const replaced = await this.replaceMarkup(markup, mediaType, resolvedUrl, resolvedUrl, nextParents);
+			const replaced = await this.replaceMarkup(markup, mediaType as SupportedType, resolvedUrl, resolvedUrl, nextParents);
 			return this.createTextUrl(replaced, mediaType);
 		}
 
 		return this.createBinaryUrl(resolvedUrl, mediaType);
 	}
 
-	async replaceMarkup(markup, mediaType, baseUrl, parentKey, parents) {
+	async replaceMarkup(
+		markup: string,
+		mediaType: SupportedType,
+		baseUrl: string,
+		parentKey: string,
+		parents?: string[]
+	): Promise<string> {
 		let doc = new DOMParser().parseFromString(markup, mediaType);
 
 		if (doc.querySelector("parsererror") && mediaType !== "text/html") {
@@ -514,7 +568,7 @@ class Resources {
 		return new XMLSerializer().serializeToString(doc);
 	}
 
-	async replaceDocument(doc, baseUrl, parentKey, parents) {
+	async replaceDocument(doc: Document, baseUrl: string, parentKey: string, parents?: string[]): Promise<void> {
 		const replaceAttribute = async (el, attr) => {
 			const value = el.getAttribute(attr);
 			const replaced = await this.loadHref(value, baseUrl, parentKey, parents);
@@ -582,7 +636,7 @@ class Resources {
 		}
 	}
 
-	async replaceSrcset(srcset, baseUrl, parentKey, parents) {
+	async replaceSrcset(srcset: string, baseUrl: string, parentKey: string, parents?: string[]): Promise<string> {
 		const parts = srcset
 			.split(",")
 			.map((part) => part.trim())
@@ -603,7 +657,7 @@ class Resources {
 		return rewritten.join(", ");
 	}
 
-	async replaceCSS(str, baseUrl, parentKey, parents) {
+	async replaceCSS(str: string, baseUrl: string, parentKey: string, parents?: string[]): Promise<string> {
 		const replacedUrls = await replaceSeries(
 			str,
 			/url\(\s*["']?([^'"\n]*?)\s*["']?\s*\)/gi,
@@ -617,7 +671,7 @@ class Resources {
 		);
 	}
 
-	destroy() {
+	destroy(): void {
 		this.resourceCache && this.resourceCache.clear();
 		this.resourceCache = undefined;
 		this.resolvedManifest = undefined;
