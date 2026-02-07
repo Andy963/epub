@@ -114,6 +114,10 @@ export default class Book {
       maxResults?: number,
       maxResultsPerSection?: number,
       excerptLimit?: number,
+      locales?: string | string[],
+      matchCase?: boolean,
+      matchDiacritics?: boolean,
+      matchWholeWords?: boolean,
       useWorker?: boolean,
       worker?: Worker,
       onProgress?: (progress: { sectionIndex: number, href: string, processed: number, total: number, results: number }) => void

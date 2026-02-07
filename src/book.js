@@ -1037,6 +1037,10 @@ class Book {
 	 * @param {number} [options.maxResults]
 	 * @param {number} [options.maxResultsPerSection]
 	 * @param {number} [options.excerptLimit]
+	 * @param {string | string[]} [options.locales]
+	 * @param {boolean} [options.matchCase=false]
+	 * @param {boolean} [options.matchDiacritics=false]
+	 * @param {boolean} [options.matchWholeWords=false]
 	 * @param {boolean} [options.useWorker]
 	 * @param {Worker} [options.worker]
 	 * @param {function} [options.onProgress]
@@ -1060,6 +1064,10 @@ class Book {
 		const excerptLimit = typeof options.excerptLimit === "number" && options.excerptLimit > 0
 			? Math.floor(options.excerptLimit)
 			: 150;
+		const localesOverride = options.locales;
+		const matchCase = options.matchCase === true;
+		const matchDiacritics = options.matchDiacritics === true;
+		const matchWholeWords = options.matchWholeWords === true;
 		const onProgress = typeof options.onProgress === "function" ? options.onProgress : undefined;
 
 		let maxResults = Infinity;
@@ -1073,6 +1081,9 @@ class Book {
 		const total = sections.length;
 		const results = [];
 
+		const defaultLocales = this.packaging && this.packaging.metadata && this.packaging.metadata.language ? this.packaging.metadata.language : "en";
+		const locales = localesOverride || defaultLocales;
+
 		const stripMarkup = (markup) => {
 			if (!markup || typeof markup !== "string") {
 				return "";
@@ -1080,31 +1091,151 @@ class Book {
 			return markup.replace(/<[^>]*>/g, " ");
 		};
 
+		const toLocaleLower = (value) => {
+			if (matchCase) {
+				return value;
+			}
+			try {
+				return value.toLocaleLowerCase(locales);
+			} catch (e) {
+				return value.toLowerCase();
+			}
+		};
+
+		const normalizeWhitespace = (value) => {
+			return value.replace(/\s+/g, " ");
+		};
+
+		const makeExcerpt = (text, startOffset, endOffset) => {
+			const half = Math.floor(excerptLimit / 2);
+			const start = Math.max(0, startOffset - half);
+			const end = Math.min(text.length, endOffset + half);
+			let excerpt = normalizeWhitespace(text.slice(start, end)).trim();
+			if (start > 0) {
+				excerpt = "..." + excerpt;
+			}
+			if (end < text.length) {
+				excerpt = excerpt + "...";
+			}
+			return excerpt;
+		};
+
+		const sensitivity = matchDiacritics && matchCase ? "variant"
+			: matchDiacritics && !matchCase ? "accent"
+			: !matchDiacritics && matchCase ? "case"
+			: "base";
+		const granularity = matchWholeWords ? "word" : "grapheme";
+
+		let segmenter;
+		let collator;
+		if (typeof Intl !== "undefined" && Intl.Segmenter && Intl.Collator) {
+			try {
+				segmenter = new Intl.Segmenter(locales, { usage: "search", granularity });
+				collator = new Intl.Collator(locales, { sensitivity });
+			} catch (e) {
+				try {
+					segmenter = new Intl.Segmenter("en", { usage: "search", granularity });
+					collator = new Intl.Collator("en", { sensitivity });
+				} catch (e2) {
+					segmenter = undefined;
+					collator = undefined;
+				}
+			}
+		}
+
+		let nonFormattingRegex;
+		try {
+			nonFormattingRegex = new RegExp("[^\\p{Format}]", "u");
+		} catch (e) {
+			nonFormattingRegex = undefined;
+		}
+
 		const findMatches = (text) => {
 			const matches = [];
-			const haystack = text.toLowerCase();
-			const needle = query.toLowerCase();
-			let lastIndex = 0;
+			const shouldUseSegmenter = !!(segmenter && collator) &&
+				!(granularity === "grapheme" && (sensitivity === "variant" || sensitivity === "accent"));
 
-			while (matches.length < maxResultsPerSection) {
-				const index = haystack.indexOf(needle, lastIndex);
-				if (index === -1) {
-					break;
+			const searchSimple = () => {
+				const haystack = toLocaleLower(text);
+				const needle = toLocaleLower(query);
+				let lastIndex = 0;
+
+				while (matches.length < maxResultsPerSection) {
+					const index = haystack.indexOf(needle, lastIndex);
+					if (index === -1) {
+						break;
+					}
+
+					matches.push({
+						index,
+						excerpt: makeExcerpt(text, index, index + needle.length)
+					});
+					lastIndex = index + needle.length;
+				}
+			};
+
+			const searchSegmenter = () => {
+				const queryLength = Array.from(segmenter.segment(query)).length;
+				if (!queryLength) {
+					return;
 				}
 
-				const half = Math.floor(excerptLimit / 2);
-				const start = Math.max(0, index - half);
-				const end = Math.min(text.length, index + needle.length + half);
-				let excerpt = text.slice(start, end);
-				if (start > 0) {
-					excerpt = "..." + excerpt;
-				}
-				if (end < text.length) {
-					excerpt = excerpt + "...";
-				}
+				const substrArr = [];
+				const segments = segmenter.segment(text)[Symbol.iterator]();
 
-				matches.push({ index, excerpt });
-				lastIndex = index + needle.length;
+				const isFormatting = (segment) => {
+					if (!nonFormattingRegex) {
+						return false;
+					}
+					return !nonFormattingRegex.test(segment);
+				};
+
+				while (matches.length < maxResultsPerSection) {
+					while (substrArr.length < queryLength) {
+						const next = segments.next();
+						if (next.done) {
+							return;
+						}
+						const value = next.value;
+						if (!value) {
+							continue;
+						}
+
+						const segment = value.segment;
+						if (!segment || isFormatting(segment)) {
+							continue;
+						}
+
+						if (/\s/u.test(segment)) {
+							const last = substrArr[substrArr.length - 1];
+							if (!last || !/\s/u.test(last.segment)) {
+								substrArr.push({ index: value.index, segment: " " });
+							}
+							continue;
+						}
+
+						substrArr.push({ index: value.index, segment });
+					}
+
+					const substr = substrArr.map((part) => part.segment).join("");
+					if (collator.compare(query, substr) === 0) {
+						const startOffset = substrArr[0].index;
+						const lastSeg = substrArr[substrArr.length - 1];
+						const endOffset = lastSeg.index + lastSeg.segment.length;
+						matches.push({
+							index: startOffset,
+							excerpt: makeExcerpt(text, startOffset, endOffset)
+						});
+					}
+
+					substrArr.shift();
+				}
+			};
+
+			if (shouldUseSegmenter) {
+				searchSegmenter();
+			} else {
+				searchSimple();
 			}
 
 			return matches;
@@ -1146,7 +1277,11 @@ class Book {
 					query,
 					content,
 					maxResultsPerSection,
-					excerptLimit
+					excerptLimit,
+					locales,
+					matchCase,
+					matchDiacritics,
+					matchWholeWords
 				});
 			});
 		};
@@ -1212,10 +1347,45 @@ class Book {
 self.onmessage = function(event) {
 	var data = event && event.data;
 	if (!data) return;
-	var query = (data.query || "").toLowerCase();
+	var query = (data.query || "").trim();
 	var content = data.content || "";
 	var maxResultsPerSection = data.maxResultsPerSection || 50;
 	var excerptLimit = data.excerptLimit || 150;
+	var locales = data.locales || "en";
+	var matchCase = data.matchCase === true;
+	var matchDiacritics = data.matchDiacritics === true;
+	var matchWholeWords = data.matchWholeWords === true;
+
+	var normalizeWhitespace = function(value) {
+		return String(value || "").replace(/\\s+/g, " ");
+	};
+
+	var makeExcerpt = function(text, startOffset, endOffset) {
+		var half = Math.floor(excerptLimit / 2);
+		var start = Math.max(0, startOffset - half);
+		var end = Math.min(text.length, endOffset + half);
+		var excerpt = normalizeWhitespace(text.slice(start, end)).trim();
+		if (start > 0) excerpt = "..." + excerpt;
+		if (end < text.length) excerpt = excerpt + "...";
+		return excerpt;
+	};
+
+	var toLocaleLower = function(value) {
+		if (matchCase) {
+			return value;
+		}
+		try {
+			return value.toLocaleLowerCase(locales);
+		} catch (e) {
+			return value.toLowerCase();
+		}
+	};
+
+	var sensitivity = matchDiacritics && matchCase ? "variant"
+		: matchDiacritics && !matchCase ? "accent"
+		: !matchDiacritics && matchCase ? "case"
+		: "base";
+	var granularity = matchWholeWords ? "word" : "grapheme";
 
 	if (!query) {
 		self.postMessage({
@@ -1225,22 +1395,87 @@ self.onmessage = function(event) {
 		return;
 	}
 
-	var haystack = content.toLowerCase();
 	var matches = [];
-	var lastIndex = 0;
-	while (matches.length < maxResultsPerSection) {
-		var index = haystack.indexOf(query, lastIndex);
-		if (index === -1) break;
+	var segmenter;
+	var collator;
+	try {
+		if (self.Intl && Intl.Segmenter && Intl.Collator) {
+			segmenter = new Intl.Segmenter(locales, { usage: "search", granularity: granularity });
+			collator = new Intl.Collator(locales, { sensitivity: sensitivity });
+		}
+	} catch (e) {
+		segmenter = null;
+		collator = null;
+	}
 
-		var half = Math.floor(excerptLimit / 2);
-		var start = Math.max(0, index - half);
-		var end = Math.min(content.length, index + query.length + half);
-		var excerpt = content.slice(start, end);
-		if (start > 0) excerpt = "..." + excerpt;
-		if (end < content.length) excerpt = excerpt + "...";
-		matches.push({ index: index, excerpt: excerpt });
+	var nonFormattingRegex;
+	try {
+		nonFormattingRegex = new RegExp("[^\\\\p{Format}]", "u");
+	} catch (e) {
+		nonFormattingRegex = null;
+	}
 
-		lastIndex = index + query.length;
+	var isFormatting = function(segment) {
+		if (!nonFormattingRegex) {
+			return false;
+		}
+		return !nonFormattingRegex.test(segment);
+	};
+
+	var shouldUseSegmenter = !!(segmenter && collator) &&
+		!(granularity === "grapheme" && (sensitivity === "variant" || sensitivity === "accent"));
+
+	if (shouldUseSegmenter) {
+		var querySegments = Array.from(segmenter.segment(query));
+		var queryLength = querySegments.length;
+		if (queryLength) {
+			var substrArr = [];
+			var segments = segmenter.segment(content)[Symbol.iterator]();
+
+			while (matches.length < maxResultsPerSection) {
+				while (substrArr.length < queryLength) {
+					var next = segments.next();
+					if (next.done) {
+						substrArr = null;
+						break;
+					}
+					var value = next.value;
+					if (!value) continue;
+					var segment = value.segment;
+					if (!segment || isFormatting(segment)) continue;
+					if (/\\s/u.test(segment)) {
+						var last = substrArr[substrArr.length - 1];
+						if (!last || !/\\s/u.test(last.segment)) {
+							substrArr.push({ index: value.index, segment: " " });
+						}
+						continue;
+					}
+					substrArr.push({ index: value.index, segment: segment });
+				}
+
+				if (!substrArr) break;
+
+				var substr = substrArr.map(function(part) { return part.segment; }).join("");
+				if (collator.compare(query, substr) === 0) {
+					var startOffset = substrArr[0].index;
+					var lastSeg = substrArr[substrArr.length - 1];
+					var endOffset = lastSeg.index + lastSeg.segment.length;
+					matches.push({ index: startOffset, excerpt: makeExcerpt(content, startOffset, endOffset) });
+				}
+				substrArr.shift();
+			}
+		}
+	} else {
+		var haystack = toLocaleLower(content);
+		var needle = toLocaleLower(query);
+		var needleLength = needle.length;
+		var lastIndex = 0;
+		while (matches.length < maxResultsPerSection) {
+			var index = haystack.indexOf(needle, lastIndex);
+			if (index === -1) break;
+			matches.push({ index: index, excerpt: makeExcerpt(content, index, index + needleLength) });
+			lastIndex = index + needleLength;
+		}
 	}
 
 	self.postMessage({
