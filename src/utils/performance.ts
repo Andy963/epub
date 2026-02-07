@@ -1,6 +1,45 @@
 const DEFAULT_MAX_ENTRIES = 500;
 
-function defaultNow() {
+export interface PerformanceTrackerOptions {
+	enabled?: boolean;
+	maxEntries?: number;
+	now?: () => number;
+}
+
+export type PerformanceEntryType = "span" | "mark";
+
+export interface PerformanceSpanEntry {
+	type: "span";
+	name: string;
+	start: number;
+	end: number;
+	duration: number;
+	data: Record<string, unknown>;
+	result: Record<string, unknown>;
+}
+
+export interface PerformanceMarkEntry {
+	type: "mark";
+	name: string;
+	at: number;
+	data: Record<string, unknown>;
+}
+
+export type PerformanceEntry = PerformanceSpanEntry | PerformanceMarkEntry;
+
+interface ActiveSpan {
+	name: string;
+	start: number;
+	data: Record<string, unknown>;
+}
+
+interface PerformanceTrackerSettings {
+	enabled: boolean;
+	maxEntries: number;
+	now?: () => number;
+}
+
+function defaultNow(): number {
 	if (typeof performance !== "undefined" && typeof performance.now === "function") {
 		return performance.now();
 	}
@@ -9,12 +48,20 @@ function defaultNow() {
 }
 
 class PerformanceTracker {
-	constructor(options) {
-		let settings = options;
+	settings: PerformanceTrackerSettings;
+	entries: PerformanceEntry[];
+	counters: Record<string, number>;
+	activeSpans: Record<number, ActiveSpan>;
+	sequence: number;
+
+	constructor(options?: PerformanceTrackerOptions | boolean) {
+		let settings: PerformanceTrackerOptions | undefined;
 		if (typeof options === "boolean") {
 			settings = {
 				enabled: options
 			};
+		} else {
+			settings = options;
 		}
 
 		this.settings = {
@@ -38,15 +85,15 @@ class PerformanceTracker {
 		this.reset();
 	}
 
-	isEnabled() {
+	isEnabled(): boolean {
 		return this.settings.enabled === true;
 	}
 
-	setEnabled(enabled) {
+	setEnabled(enabled: boolean): void {
 		this.settings.enabled = !!enabled;
 	}
 
-	start(name, data) {
+	start(name: string, data?: Record<string, unknown>): number | undefined {
 		if (!this.isEnabled()) {
 			return undefined;
 		}
@@ -60,7 +107,10 @@ class PerformanceTracker {
 		return this.sequence;
 	}
 
-	end(spanId, data) {
+	end(
+		spanId: number | undefined,
+		data?: Record<string, unknown>
+	): PerformanceSpanEntry | undefined {
 		if (!this.isEnabled() || typeof spanId === "undefined") {
 			return;
 		}
@@ -73,7 +123,7 @@ class PerformanceTracker {
 
 		const end = this.now();
 		const duration = end - span.start;
-		const entry = {
+		const entry: PerformanceSpanEntry = {
 			type: "span",
 			name: span.name,
 			start: span.start,
@@ -90,12 +140,12 @@ class PerformanceTracker {
 		return entry;
 	}
 
-	mark(name, data) {
+	mark(name: string, data?: Record<string, unknown>): PerformanceMarkEntry | undefined {
 		if (!this.isEnabled()) {
 			return;
 		}
 
-		const entry = {
+		const entry: PerformanceMarkEntry = {
 			type: "mark",
 			name: name,
 			at: this.now(),
@@ -107,7 +157,7 @@ class PerformanceTracker {
 		return entry;
 	}
 
-	count(name, value) {
+	count(name: string, value?: number): void {
 		if (!this.isEnabled() || !name) {
 			return;
 		}
@@ -119,7 +169,12 @@ class PerformanceTracker {
 		this.counters[name] += typeof value === "number" ? value : 1;
 	}
 
-	snapshot() {
+	snapshot(): {
+		enabled: boolean;
+		counters: Record<string, number>;
+		entries: PerformanceEntry[];
+		activeSpans: number;
+	} {
 		return {
 			enabled: this.isEnabled(),
 			counters: Object.assign({}, this.counters),
@@ -128,21 +183,21 @@ class PerformanceTracker {
 		};
 	}
 
-	reset() {
+	reset(): void {
 		this.entries = [];
 		this.counters = {};
 		this.activeSpans = {};
 		this.sequence = 0;
 	}
 
-	now() {
+	now(): number {
 		if (typeof this.settings.now === "function") {
 			return this.settings.now();
 		}
 		return defaultNow();
 	}
 
-	push(entry) {
+	push(entry: PerformanceEntry): void {
 		this.entries.push(entry);
 		if (this.entries.length > this.settings.maxEntries) {
 			this.entries.shift();
