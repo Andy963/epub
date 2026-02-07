@@ -44,6 +44,7 @@ export default class PdfBook {
   };
 
   open(input: string | ArrayBuffer | Blob): Promise<PdfBook>;
+  coverUrl(): Promise<string | null>;
   section(target: string | number): any;
   cancelPrefetch(): number;
   prefetch(section: any, distance?: number): Promise<any[]>;
@@ -51,6 +52,10 @@ export default class PdfBook {
     signal?: AbortSignal,
     maxResults?: number,
     excerptLimit?: number,
+    locales?: string | string[],
+    matchCase?: boolean,
+    matchDiacritics?: boolean,
+    matchWholeWords?: boolean,
     onProgress?: (progress: any) => void
   }): Promise<Array<{ sectionIndex: number, href: string, cfi: string, excerpt: string }>>;
   searchText(query: string, options?: {
@@ -58,6 +63,10 @@ export default class PdfBook {
     maxResults?: number,
     maxResultsPerSection?: number,
     excerptLimit?: number,
+    locales?: string | string[],
+    matchCase?: boolean,
+    matchDiacritics?: boolean,
+    matchWholeWords?: boolean,
     onProgress?: (progress: any) => void
   }): Promise<Array<{ sectionIndex: number, href: string, matches: Array<{ index: number, excerpt: string }> }>>;
   renderTo(element: Element | string, options?: RenditionOptions): Rendition;

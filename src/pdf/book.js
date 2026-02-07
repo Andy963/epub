@@ -222,6 +222,26 @@ class PdfBook {
 		return this;
 	}
 
+	/**
+	 * Get a cover image URL (renders the first page)
+	 * @return {Promise<?string>} coverUrl
+	 */
+	async coverUrl() {
+		await this.ready;
+
+		if (!this.pdf || !this.pageCache) {
+			return null;
+		}
+
+		const parentKey = "cover";
+		const key = this.pageCacheKey(1);
+		const pageData = await this.pageCache.acquire(key, parentKey, async () => {
+			return this.renderPageData(1);
+		});
+
+		return pageData && pageData.url ? pageData.url : null;
+	}
+
 	async loadMetadata() {
 		if (!this.pdf || typeof this.pdf.getMetadata !== "function") {
 			this.loading.metadata.resolve(
@@ -721,6 +741,10 @@ class PdfBook {
 
 		options = options || {};
 		const signal = options.signal;
+		const localesOverride = options.locales;
+		const matchCase = options.matchCase === true;
+		const matchDiacritics = options.matchDiacritics === true;
+		const matchWholeWords = options.matchWholeWords === true;
 		const excerptLimit =
 			typeof options.excerptLimit === "number" && options.excerptLimit > 0
 				? Math.floor(options.excerptLimit)
@@ -744,32 +768,172 @@ class PdfBook {
 		const total = sections.length;
 		const results = [];
 
-		const needle = query.toLowerCase();
+		const locales =
+			localesOverride ||
+			(this.package &&
+			this.package.metadata &&
+			typeof this.package.metadata.language === "string" &&
+			this.package.metadata.language
+				? this.package.metadata.language
+				: "en");
+
+		const toLocaleLower = (value) => {
+			if (matchCase) {
+				return value;
+			}
+			try {
+				return value.toLocaleLowerCase(locales);
+			} catch (e) {
+				return value.toLowerCase();
+			}
+		};
+
+		const normalizeWhitespace = (value) => {
+			return value.replace(/\s+/g, " ");
+		};
+
+		const makeExcerpt = (text, startOffset, endOffset) => {
+			const half = Math.floor(excerptLimit / 2);
+			const start = Math.max(0, startOffset - half);
+			const end = Math.min(text.length, endOffset + half);
+			let excerpt = normalizeWhitespace(text.slice(start, end)).trim();
+			if (start > 0) {
+				excerpt = "..." + excerpt;
+			}
+			if (end < text.length) {
+				excerpt = excerpt + "...";
+			}
+			return excerpt;
+		};
+
+		const sensitivity =
+			matchDiacritics && matchCase
+				? "variant"
+				: matchDiacritics && !matchCase
+					? "accent"
+					: !matchDiacritics && matchCase
+						? "case"
+						: "base";
+		const granularity = matchWholeWords ? "word" : "grapheme";
+
+		let segmenter;
+		let collator;
+		if (typeof Intl !== "undefined" && Intl.Segmenter && Intl.Collator) {
+			try {
+				segmenter = new Intl.Segmenter(locales, {
+					usage: "search",
+					granularity,
+				});
+				collator = new Intl.Collator(locales, { sensitivity });
+			} catch (e) {
+				try {
+					segmenter = new Intl.Segmenter("en", {
+						usage: "search",
+						granularity,
+					});
+					collator = new Intl.Collator("en", { sensitivity });
+				} catch (e2) {
+					segmenter = undefined;
+					collator = undefined;
+				}
+			}
+		}
+
+		let nonFormattingRegex;
+		try {
+			nonFormattingRegex = new RegExp("[^\\p{Format}]", "u");
+		} catch (e) {
+			nonFormattingRegex = undefined;
+		}
 
 		const findMatches = (text) => {
 			const matches = [];
-			const haystack = (text || "").toLowerCase();
-			let lastIndex = 0;
+			const shouldUseSegmenter =
+				!!(segmenter && collator) &&
+				!(granularity === "grapheme" &&
+					(sensitivity === "variant" || sensitivity === "accent"));
 
-			while (matches.length < maxResults && lastIndex <= haystack.length) {
-				const index = haystack.indexOf(needle, lastIndex);
-				if (index === -1) {
-					break;
+			const searchSimple = () => {
+				const haystack = toLocaleLower(text);
+				const needle = toLocaleLower(query);
+				let lastIndex = 0;
+
+				while (matches.length < maxResults && lastIndex <= haystack.length) {
+					const index = haystack.indexOf(needle, lastIndex);
+					if (index === -1) {
+						break;
+					}
+
+					matches.push({
+						index,
+						excerpt: makeExcerpt(text, index, index + needle.length),
+					});
+					lastIndex = index + needle.length;
+				}
+			};
+
+			const searchSegmenter = () => {
+				const queryLength = Array.from(segmenter.segment(query)).length;
+				if (!queryLength) {
+					return;
 				}
 
-				const half = Math.floor(excerptLimit / 2);
-				const start = Math.max(0, index - half);
-				const end = Math.min(text.length, index + needle.length + half);
-				let excerpt = text.slice(start, end);
-				if (start > 0) {
-					excerpt = "..." + excerpt;
-				}
-				if (end < text.length) {
-					excerpt = excerpt + "...";
-				}
+				const substrArr = [];
+				const segments = segmenter.segment(text)[Symbol.iterator]();
 
-				matches.push({ index, excerpt });
-				lastIndex = index + needle.length;
+				const isFormatting = (segment) => {
+					if (!nonFormattingRegex) {
+						return false;
+					}
+					return !nonFormattingRegex.test(segment);
+				};
+
+				while (matches.length < maxResults) {
+					while (substrArr.length < queryLength) {
+						const next = segments.next();
+						if (next.done) {
+							return;
+						}
+						const value = next.value;
+						if (!value) {
+							continue;
+						}
+
+						const segment = value.segment;
+						if (!segment || isFormatting(segment)) {
+							continue;
+						}
+
+						if (/\s/u.test(segment)) {
+							const last = substrArr[substrArr.length - 1];
+							if (!last || !/\s/u.test(last.segment)) {
+								substrArr.push({ index: value.index, segment: " " });
+							}
+							continue;
+						}
+
+						substrArr.push({ index: value.index, segment });
+					}
+
+					const substr = substrArr.map((part) => part.segment).join("");
+					if (collator.compare(query, substr) === 0) {
+						const startOffset = substrArr[0].index;
+						const lastSeg = substrArr[substrArr.length - 1];
+						const endOffset = lastSeg.index + lastSeg.segment.length;
+						matches.push({
+							index: startOffset,
+							excerpt: makeExcerpt(text, startOffset, endOffset),
+						});
+					}
+
+					substrArr.shift();
+				}
+			};
+
+			if (shouldUseSegmenter) {
+				searchSegmenter();
+			} else {
+				searchSimple();
 			}
 
 			return matches;
@@ -844,6 +1008,10 @@ class PdfBook {
 
 		options = options || {};
 		const signal = options.signal;
+		const localesOverride = options.locales;
+		const matchCase = options.matchCase === true;
+		const matchDiacritics = options.matchDiacritics === true;
+		const matchWholeWords = options.matchWholeWords === true;
 		const maxResultsPerSection =
 			typeof options.maxResultsPerSection === "number" &&
 			options.maxResultsPerSection > 0
@@ -872,36 +1040,177 @@ class PdfBook {
 		const total = sections.length;
 		const results = [];
 
-		const needle = query.toLowerCase();
+		const locales =
+			localesOverride ||
+			(this.package &&
+			this.package.metadata &&
+			typeof this.package.metadata.language === "string" &&
+			this.package.metadata.language
+				? this.package.metadata.language
+				: "en");
+
+		const toLocaleLower = (value) => {
+			if (matchCase) {
+				return value;
+			}
+			try {
+				return value.toLocaleLowerCase(locales);
+			} catch (e) {
+				return value.toLowerCase();
+			}
+		};
+
+		const normalizeWhitespace = (value) => {
+			return value.replace(/\s+/g, " ");
+		};
+
+		const makeExcerpt = (text, startOffset, endOffset) => {
+			const half = Math.floor(excerptLimit / 2);
+			const start = Math.max(0, startOffset - half);
+			const end = Math.min(text.length, endOffset + half);
+			let excerpt = normalizeWhitespace(text.slice(start, end)).trim();
+			if (start > 0) {
+				excerpt = "..." + excerpt;
+			}
+			if (end < text.length) {
+				excerpt = excerpt + "...";
+			}
+			return excerpt;
+		};
+
+		const sensitivity =
+			matchDiacritics && matchCase
+				? "variant"
+				: matchDiacritics && !matchCase
+					? "accent"
+					: !matchDiacritics && matchCase
+						? "case"
+						: "base";
+		const granularity = matchWholeWords ? "word" : "grapheme";
+
+		let segmenter;
+		let collator;
+		if (typeof Intl !== "undefined" && Intl.Segmenter && Intl.Collator) {
+			try {
+				segmenter = new Intl.Segmenter(locales, {
+					usage: "search",
+					granularity,
+				});
+				collator = new Intl.Collator(locales, { sensitivity });
+			} catch (e) {
+				try {
+					segmenter = new Intl.Segmenter("en", {
+						usage: "search",
+						granularity,
+					});
+					collator = new Intl.Collator("en", { sensitivity });
+				} catch (e2) {
+					segmenter = undefined;
+					collator = undefined;
+				}
+			}
+		}
+
+		let nonFormattingRegex;
+		try {
+			nonFormattingRegex = new RegExp("[^\\p{Format}]", "u");
+		} catch (e) {
+			nonFormattingRegex = undefined;
+		}
+
 		let totalMatches = 0;
 
 		const findMatches = (text) => {
 			const matches = [];
-			const haystack = (text || "").toLowerCase();
-			let lastIndex = 0;
+			const shouldUseSegmenter =
+				!!(segmenter && collator) &&
+				!(granularity === "grapheme" &&
+					(sensitivity === "variant" || sensitivity === "accent"));
 
-			while (
-				matches.length < maxResultsPerSection &&
-				lastIndex <= haystack.length
-			) {
-				const index = haystack.indexOf(needle, lastIndex);
-				if (index === -1) {
-					break;
+			const searchSimple = () => {
+				const haystack = toLocaleLower(text);
+				const needle = toLocaleLower(query);
+				let lastIndex = 0;
+
+				while (
+					matches.length < maxResultsPerSection &&
+					lastIndex <= haystack.length
+				) {
+					const index = haystack.indexOf(needle, lastIndex);
+					if (index === -1) {
+						break;
+					}
+
+					matches.push({
+						index,
+						excerpt: makeExcerpt(text, index, index + needle.length),
+					});
+					lastIndex = index + needle.length;
+				}
+			};
+
+			const searchSegmenter = () => {
+				const queryLength = Array.from(segmenter.segment(query)).length;
+				if (!queryLength) {
+					return;
 				}
 
-				const half = Math.floor(excerptLimit / 2);
-				const start = Math.max(0, index - half);
-				const end = Math.min(text.length, index + needle.length + half);
-				let excerpt = text.slice(start, end);
-				if (start > 0) {
-					excerpt = "..." + excerpt;
-				}
-				if (end < text.length) {
-					excerpt = excerpt + "...";
-				}
+				const substrArr = [];
+				const segments = segmenter.segment(text)[Symbol.iterator]();
 
-				matches.push({ index, excerpt });
-				lastIndex = index + needle.length;
+				const isFormatting = (segment) => {
+					if (!nonFormattingRegex) {
+						return false;
+					}
+					return !nonFormattingRegex.test(segment);
+				};
+
+				while (matches.length < maxResultsPerSection) {
+					while (substrArr.length < queryLength) {
+						const next = segments.next();
+						if (next.done) {
+							return;
+						}
+						const value = next.value;
+						if (!value) {
+							continue;
+						}
+
+						const segment = value.segment;
+						if (!segment || isFormatting(segment)) {
+							continue;
+						}
+
+						if (/\s/u.test(segment)) {
+							const last = substrArr[substrArr.length - 1];
+							if (!last || !/\s/u.test(last.segment)) {
+								substrArr.push({ index: value.index, segment: " " });
+							}
+							continue;
+						}
+
+						substrArr.push({ index: value.index, segment });
+					}
+
+					const substr = substrArr.map((part) => part.segment).join("");
+					if (collator.compare(query, substr) === 0) {
+						const startOffset = substrArr[0].index;
+						const lastSeg = substrArr[substrArr.length - 1];
+						const endOffset = lastSeg.index + lastSeg.segment.length;
+						matches.push({
+							index: startOffset,
+							excerpt: makeExcerpt(text, startOffset, endOffset),
+						});
+					}
+
+					substrArr.shift();
+				}
+			};
+
+			if (shouldUseSegmenter) {
+				searchSegmenter();
+			} else {
+				searchSimple();
 			}
 
 			return matches;
@@ -972,11 +1281,14 @@ class PdfBook {
 			"html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }",
 			"body { position: relative; background: transparent; }",
 			".page { position: relative; width: 100%; height: 100%; }",
-			".page img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }",
-			".textLayer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; color: transparent; -webkit-text-fill-color: transparent; font-family: sans-serif; transform-origin: 0 0; }",
-			".textLayer span { position: absolute; white-space: pre; transform-origin: 0 0; line-height: 1; }",
-			".annotationLayer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }",
-			".annotationLayer a { position: absolute; display: block; }",
+			".page img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }",
+			".textLayer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; color: transparent; -webkit-text-fill-color: transparent; font-family: sans-serif; transform-origin: 0 0; line-height: 1; text-size-adjust: none; z-index: 2; }",
+			".textLayer span { position: absolute; white-space: pre; transform-origin: 0 0; line-height: 1; cursor: text; }",
+			".textLayer ::selection { background: rgba(0, 0, 255, 0.25); }",
+			".textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: 0; cursor: default; user-select: none; }",
+			".textLayer.selecting .endOfContent { top: 0; }",
+			".annotationLayer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 3; }",
+			".annotationLayer a { position: absolute; display: block; pointer-events: auto; }",
 		].join("\n");
 
 		const layers = [
@@ -1237,7 +1549,7 @@ class PdfBook {
 			spans.push(`<span style=\"${style}\">${this.escapeHtml(text)}</span>`);
 		}
 
-		return `<div class=\"textLayer\">${spans.join("")}</div>`;
+		return `<div class=\"textLayer\">${spans.join("")}<div class=\"endOfContent\"></div></div>`;
 	}
 
 	async buildAnnotationLayerHtml(annotations, viewport) {
