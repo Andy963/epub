@@ -1075,7 +1075,7 @@ class EpubCFI {
 	 * Collapse a CFI Range to a single CFI Position
 	 * @param {boolean} [toStart=false]
 	 */
-	collapse(toStart) {
+	collapse(toStart?) {
 		if (!this.range) {
 			return;
 		}

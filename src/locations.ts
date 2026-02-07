@@ -11,7 +11,37 @@ import EventEmitter from "event-emitter";
  * @param {number} [pause=100]
  */
 class Locations {
-	constructor(spine, request, pause) {
+	spine: any;
+	request: any;
+	pause: number;
+
+	q: any;
+	epubcfi: EpubCFI;
+
+	_locations: string[];
+	_locationsWords: number[];
+	total: number;
+
+	"break": number | undefined;
+
+	_current: number;
+	_wordCounter: number;
+
+	_currentCfi: string;
+	processingTimeout: any;
+
+	worker: Worker | undefined;
+	workerRequests: Map<number, any>;
+	workerRequestId: number;
+
+	book: any;
+
+	on: (event: string, listener: (...args: any[]) => void) => this;
+	once: (event: string, listener: (...args: any[]) => void) => this;
+	off: (event: string, listener?: (...args: any[]) => void) => this;
+	emit: (event: string, ...args: any[]) => boolean;
+
+	constructor(spine: any, request: any, pause?: number) {
 		this.spine = spine;
 		this.request = request;
 		this.pause = pause || 100;
@@ -29,7 +59,7 @@ class Locations {
 
 		this._wordCounter = 0;
 
-		this.currentLocation = '';
+		this.currentLocation = 0;
 		this._currentCfi ='';
 		this.processingTimeout = undefined;
 
@@ -44,7 +74,7 @@ class Locations {
 	 * @param  {object} [options]
 	 * @return {Promise<Array<string>>} locations
 	 */
-	generate(chars, options) {
+	generate(chars, options?) {
 		if (options && options.useWorker) {
 			return this.generateWithWorker(chars, options);
 		}
@@ -149,14 +179,14 @@ class Locations {
 			return;
 		}
 
-		if (worker.__epubjsLocationsAttached) {
+		if ((worker as any).__epubjsLocationsAttached) {
 			return;
 		}
 
 		worker.onmessage = (event) => this.handleWorkerMessage(event);
 		worker.onmessageerror = (event) => this.handleWorkerError(event);
 		worker.onerror = (event) => this.handleWorkerError(event);
-		worker.__epubjsLocationsAttached = true;
+		(worker as any).__epubjsLocationsAttached = true;
 	}
 
 	handleWorkerMessage(event) {
@@ -599,7 +629,7 @@ self.onmessage = (event) => {
 	 * @return {EpubCFI} cfi
 	 */
 	cfiFromLocation(loc){
-		var cfi = -1;
+		var cfi: any = -1;
 		// check that pg is an int
 		if(typeof loc != "number"){
 			loc = parseInt(loc);
