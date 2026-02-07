@@ -1,12 +1,25 @@
 import {defer, requestAnimationFrame} from "./core";
 
+type Deferred<T = any> = {
+	resolve: (value?: T) => void;
+	reject: (reason?: any) => void;
+	promise: Promise<T>;
+};
+
 /**
  * Queue for handling tasks one at a time
  * @class
  * @param {scope} context what this will resolve to in the tasks
  */
 class Queue {
-	constructor(context){
+	_q: Array<any>;
+	context: any;
+	tick: typeof requestAnimationFrame;
+	running: Promise<any> | boolean | undefined;
+	paused: boolean;
+	defered: Deferred<void> | undefined;
+
+	constructor(context: any){
 		this._q = [];
 		this.context = context;
 		this.tick = requestAnimationFrame;
@@ -18,24 +31,15 @@ class Queue {
 	 * Add an item to the queue
 	 * @return {Promise}
 	 */
-	enqueue() {
-		var deferred, promise;
-		var queued;
-		var task = [].shift.call(arguments);
-		var args = arguments;
-
-		// Handle single args without context
-		// if(args && !Array.isArray(args)) {
-		//   args = [args];
-		// }
+	enqueue(task: any, ...args: any[]): Promise<any> {
+		let queued: any;
 		if(!task) {
 			throw new Error("No Task Provided");
 		}
 
 		if(typeof task === "function"){
-
-			deferred = new defer();
-			promise = deferred.promise;
+			const deferred: Deferred<any> = new (defer as any)();
+			const promise = deferred.promise;
 
 			queued = {
 				"task" : task,
@@ -69,7 +73,7 @@ class Queue {
 	 * Run one item
 	 * @return {Promise}
 	 */
-	dequeue(){
+	dequeue(): Promise<any> {
 		var inwait, task, result;
 
 		if(this._q.length && !this.paused) {
@@ -101,9 +105,9 @@ class Queue {
 			}
 
 		} else {
-			inwait = new defer();
-			inwait.deferred.resolve();
-			return inwait.promise;
+			const idle: Deferred<void> = new (defer as any)();
+			idle.resolve();
+			return idle.promise;
 		}
 
 	}
@@ -123,7 +127,7 @@ class Queue {
 
 		if(!this.running){
 			this.running = true;
-			this.defered = new defer();
+			this.defered = new (defer as any)();
 		}
 
 		this.tick.call(window, () => {
@@ -136,7 +140,9 @@ class Queue {
 					}.bind(this));
 
 			} else {
-				this.defered.resolve();
+				if (this.defered) {
+					this.defered.resolve();
+				}
 				this.running = undefined;
 			}
 
@@ -147,7 +153,7 @@ class Queue {
 			this.paused = false;
 		}
 
-		return this.defered.promise;
+		return this.defered ? this.defered.promise : Promise.resolve();
 	}
 
 	/**
@@ -218,7 +224,7 @@ class Task {
 	constructor(task, args, context){
 
 		return function(){
-			var toApply = arguments || [];
+			var toApply = Array.prototype.slice.call(arguments) as any[];
 
 			return new Promise( (resolve, reject) => {
 				var callback = function(value, err){
