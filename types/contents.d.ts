@@ -48,7 +48,7 @@ export default class Contents {
 
     direction(dir: string): void;
 
-    fit(width: number, height: number): void;
+    fit(width: number, height: number, section?: any, viewportOverride?: any, zoom?: any): void;
 
     height(h: number): number;
 

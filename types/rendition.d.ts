@@ -29,7 +29,8 @@ export interface RenditionOptions {
   allowScriptedContent?: boolean,
   allowPopups?: boolean,
   prefetch?: boolean | number,
-  footnotes?: boolean | { detect?: boolean, extract?: boolean }
+  footnotes?: boolean | { detect?: boolean, extract?: boolean },
+  fixedLayout?: null | { zoom?: number | "fit-width" | "fit-page" }
 }
 
 export interface DisplayedLocation {

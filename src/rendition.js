@@ -63,7 +63,8 @@ class Rendition {
 			allowScriptedContent: false,
 			allowPopups: false,
 			prefetch: false,
-			footnotes: false
+			footnotes: false,
+			fixedLayout: null
 		});
 
 		extend(this.settings, options);
@@ -616,10 +617,15 @@ class Rendition {
 		var viewport = metadata.viewport || "";
 		var minSpreadWidth = this.settings.minSpreadWidth || metadata.minSpreadWidth || 800;
 		var direction = this.settings.direction || metadata.direction || "ltr";
+		var fixedLayoutZoom;
 
 		if ((this.settings.width === 0 || this.settings.width > 0) &&
 				(this.settings.height === 0 || this.settings.height > 0)) {
 			// viewport = "width="+this.settings.width+", height="+this.settings.height+"";
+		}
+
+		if (this.settings.fixedLayout && typeof this.settings.fixedLayout === "object") {
+			fixedLayoutZoom = this.settings.fixedLayout.zoom;
 		}
 
 		properties = {
@@ -629,7 +635,8 @@ class Rendition {
 			flow : flow,
 			viewport : viewport,
 			minSpreadWidth : minSpreadWidth,
-			direction: direction
+			direction: direction,
+			fixedLayoutZoom: fixedLayoutZoom
 		};
 
 		return properties;

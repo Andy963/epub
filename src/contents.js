@@ -1123,16 +1123,10 @@ class Contents {
 	 * @param {number} offsetY
 	 */
 	scaler(scale, offsetX, offsetY){
-		var scaleStr = "scale(" + scale + ")";
-		var translateStr = "";
-		// this.css("position", "absolute"));
+		var tx = isNumber(offsetX) ? offsetX : 0;
+		var ty = isNumber(offsetY) ? offsetY : 0;
 		this.css("transform-origin", "top left");
-
-		if (offsetX >= 0 || offsetY >= 0) {
-			translateStr = " translate(" + (offsetX || 0 )+ "px, " + (offsetY || 0 )+ "px )";
-		}
-
-		this.css("transform", scaleStr + translateStr);
+		this.css("transform", "matrix(" + scale + ", 0, 0, " + scale + ", " + tx + ", " + ty + ")");
 	}
 
 	/**
@@ -1140,41 +1134,120 @@ class Contents {
 	 * @param {number} width
 	 * @param {number} height
 	 */
-	fit(width, height, section){
-		var viewport = this.viewport();
-		var viewportWidth = parseInt(viewport.width);
-		var viewportHeight = parseInt(viewport.height);
-		var widthScale = width / viewportWidth;
-		var heightScale = height / viewportHeight;
-		var scale = widthScale < heightScale ? widthScale : heightScale;
+	fit(width, height, section, viewportOverride, zoom){
+		const resolveDimension = (value) => {
+			const num = typeof value === "number" ? value : parseFloat(value);
+			if (!isFinite(num) || num <= 0) {
+				return;
+			}
+			return num;
+		};
 
-		// the translate does not work as intended, elements can end up unaligned
-		// var offsetY = (height - (viewportHeight * scale)) / 2;
-		// var offsetX = 0;
-		// if (this.sectionIndex % 2 === 1) {
-		// 	offsetX = width - (viewportWidth * scale);
-		// }
+		const parseViewportString = (value) => {
+			if (!value || typeof value !== "string") {
+				return;
+			}
+
+			const entries = value.split(/[,;\s]/).filter(Boolean).map((part) => {
+				return part.split("=").map((token) => token.trim());
+			});
+
+			const viewport = {};
+			for (let i = 0; i < entries.length; i += 1) {
+				const entry = entries[i];
+				if (!entry || entry.length < 2) {
+					continue;
+				}
+				viewport[entry[0]] = entry.slice(1).join("=");
+			}
+
+			return viewport;
+		};
+
+		let viewportWidth;
+		let viewportHeight;
+
+		const docEl = this.document && this.document.documentElement;
+		if (docEl && docEl.localName === "svg") {
+			const viewBox = docEl.getAttribute && docEl.getAttribute("viewBox");
+			if (viewBox) {
+				const parts = viewBox.split(/\s+/);
+				if (parts.length >= 4) {
+					viewportWidth = resolveDimension(parts[2]);
+					viewportHeight = resolveDimension(parts[3]);
+				}
+			}
+		}
+
+		if (!viewportWidth || !viewportHeight) {
+			const viewportMeta = this.viewport();
+			viewportWidth = resolveDimension(viewportMeta && viewportMeta.width);
+			viewportHeight = resolveDimension(viewportMeta && viewportMeta.height);
+		}
+
+		if ((!viewportWidth || !viewportHeight) && viewportOverride) {
+			const parsed = typeof viewportOverride === "string" ? parseViewportString(viewportOverride) : viewportOverride;
+			viewportWidth = viewportWidth || resolveDimension(parsed && parsed.width);
+			viewportHeight = viewportHeight || resolveDimension(parsed && parsed.height);
+		}
+
+		if (!viewportWidth || !viewportHeight) {
+			const img = this.document && this.document.querySelector && this.document.querySelector("img");
+			if (img) {
+				const naturalWidth = resolveDimension(img.naturalWidth);
+				const naturalHeight = resolveDimension(img.naturalHeight);
+				viewportWidth = viewportWidth || naturalWidth || resolveDimension(img.getAttribute && img.getAttribute("width"));
+				viewportHeight = viewportHeight || naturalHeight || resolveDimension(img.getAttribute && img.getAttribute("height"));
+			}
+		}
+
+		if (!viewportWidth || !viewportHeight) {
+			viewportWidth = 1000;
+			viewportHeight = 2000;
+		}
+
+		const widthScale = width / viewportWidth;
+		const heightScale = height / viewportHeight;
+		const fitPageScale = Math.min(widthScale, heightScale);
+
+		let scale;
+		if (typeof zoom === "number" && isFinite(zoom) && zoom > 0) {
+			scale = zoom;
+		} else if (zoom === "fit-width") {
+			scale = widthScale;
+		} else {
+			scale = fitPageScale;
+		}
+
+		const scaledWidth = viewportWidth * scale;
+		const scaledHeight = viewportHeight * scale;
+
+		let offsetX = Math.floor((width - scaledWidth) / 2);
+		let offsetY = Math.floor((height - scaledHeight) / 2);
+
+		if (section && section.properties && section.properties.includes("page-spread-left")) {
+			offsetX = Math.floor(width - scaledWidth);
+		} else if (section && section.properties && section.properties.includes("page-spread-right")) {
+			offsetX = 0;
+		}
+
+		offsetX = Math.max(0, offsetX);
+		offsetY = Math.max(0, offsetY);
 
 		this.layoutStyle("paginated");
 
 		// scale needs width and height to be set
 		this.width(viewportWidth);
 		this.height(viewportHeight);
-		this.overflow("hidden");
+		this.overflow(scale > fitPageScale ? "auto" : "hidden");
 
 		// Scale to the correct size
-		this.scaler(scale, 0, 0);
-		// this.scaler(scale, offsetX > 0 ? offsetX : 0, offsetY);
+		this.scaler(scale, offsetX, offsetY);
 
 		// background images are not scaled by transform
-		this.css("background-size", viewportWidth * scale + "px " + viewportHeight * scale + "px");
+		this.css("background-size", scaledWidth + "px " + scaledHeight + "px");
 
 		this.css("background-color", "transparent");
-		if (section && section.properties.includes("page-spread-left")) {
-			// set margin since scale is weird
-			var marginLeft = width - (viewportWidth * scale);
-			this.css("margin-left", marginLeft + "px");
-		}
 	}
 
 	/**

@@ -189,16 +189,16 @@ class Layout {
 	 * @param  {Contents} contents
 	 * @return {Promise}
 	 */
-	format(contents, section, axis){
-		var formating;
+		format(contents, section, axis){
+			var formating;
 
-		if (this.name === "pre-paginated") {
-			formating = contents.fit(this.columnWidth, this.height, section);
-		} else if (this._flow === "paginated") {
-			formating = contents.columns(this.width, this.height, this.columnWidth, this.gap, this.settings.direction);
-		} else if (axis && axis === "horizontal") {
-			formating = contents.size(null, this.height);
-		} else {
+			if (this.name === "pre-paginated") {
+				formating = contents.fit(this.columnWidth, this.height, section, this.settings.viewport, this.settings.fixedLayoutZoom);
+			} else if (this._flow === "paginated") {
+				formating = contents.columns(this.width, this.height, this.columnWidth, this.gap, this.settings.direction);
+			} else if (axis && axis === "horizontal") {
+				formating = contents.size(null, this.height);
+			} else {
 			formating = contents.size(this.width, null);				
 		}
 
