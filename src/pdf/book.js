@@ -17,7 +17,8 @@ class PdfBook {
 			typeof options === "undefined" &&
 			typeof url !== "string" &&
 			url instanceof Blob === false &&
-			url instanceof ArrayBuffer === false
+			url instanceof ArrayBuffer === false &&
+			url instanceof Uint8Array === false
 		) {
 			options = url;
 			url = undefined;
@@ -203,6 +204,12 @@ class PdfBook {
 		} else if (input instanceof ArrayBuffer) {
 			loadingTask = pdfjs.getDocument({
 				data: input,
+				password: this.settings.password,
+			});
+		} else if (input && typeof input.buffer === "object") {
+			const data = input instanceof Uint8Array ? input : new Uint8Array(input);
+			loadingTask = pdfjs.getDocument({
+				data,
 				password: this.settings.password,
 			});
 		} else {
@@ -480,6 +487,11 @@ class PdfBook {
 		}
 		if (typeof renditionOptions.flow === "undefined") {
 			renditionOptions.flow = "scrolled-continuous";
+		}
+		if (!renditionOptions.fixedLayout || typeof renditionOptions.fixedLayout !== "object") {
+			renditionOptions.fixedLayout = { zoom: "fit-width" };
+		} else if (typeof renditionOptions.fixedLayout.zoom === "undefined") {
+			renditionOptions.fixedLayout.zoom = "fit-width";
 		}
 		if (
 			typeof renditionOptions.prefetch === "undefined" &&

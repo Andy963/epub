@@ -59,7 +59,8 @@ class Book {
 		if (typeof(options) === "undefined" &&
 			  typeof(url) !== "string" &&
 		    url instanceof Blob === false &&
-		    url instanceof ArrayBuffer === false) {
+		    url instanceof ArrayBuffer === false &&
+		    url instanceof Uint8Array === false) {
 			options = url;
 			url = undefined;
 		}

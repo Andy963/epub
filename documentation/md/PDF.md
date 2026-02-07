@@ -60,6 +60,5 @@
   - `false` / `"none"`：禁用双页 spread。
   - `"auto"`：容器足够宽时启用双页 spread。
 - `fixedLayout: { zoom }`：
-  - `zoom: "fit-page"`：整页适配（默认行为）。
-  - `zoom: "fit-width"`：按宽度适配（更易读，但可能需要纵向滚动）。
-
+  - `zoom: "fit-width"`：按宽度适配（`PdfBook.renderTo()` 默认行为，更易读；连续滚动时页面会变高）。
+  - `zoom: "fit-page"`：整页适配（更像传统 PDF “整页” 预览）。
