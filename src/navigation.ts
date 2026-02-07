@@ -1,11 +1,34 @@
 import {qs, qsa, querySelectorByType, filterChildren, getParentByTagName} from "./utils/core";
 
+export interface NavigationTocItem {
+	id?: string;
+	href?: string;
+	label: string;
+	subitems: NavigationTocItem[];
+	parent?: string;
+}
+
+export interface NavigationLandmarkItem {
+	href: string;
+	label: string;
+	type?: string;
+}
+
 /**
  * Navigation Parser
  * @param {document} xml navigation html / xhtml / ncx
  */
 class Navigation {
-	constructor(xml) {
+	toc: NavigationTocItem[];
+	tocByHref: Record<string, number>;
+	tocById: Record<string, number>;
+
+	landmarks: NavigationLandmarkItem[];
+	landmarksByType: Record<string, number>;
+
+	length: number;
+
+	constructor(xml?: any) {
 		this.toc = [];
 		this.tocByHref = {};
 		this.tocById = {};
@@ -23,7 +46,7 @@ class Navigation {
 	 * Parse out the navigation items
 	 * @param {document} xml navigation html / xhtml / ncx
 	 */
-	parse(xml) {
+	parse(xml: any): void {
 		let isXml = xml.nodeType;
 		let html;
 		let ncx;
@@ -52,8 +75,8 @@ class Navigation {
 	 * @private
 	 * @param  {array} toc
 	 */
-	unpack(toc) {
-		var item;
+	unpack(toc: NavigationTocItem[]): void {
+		let item: NavigationTocItem;
 
 		for (var i = 0; i < toc.length; i++) {
 			item = toc[i];
@@ -80,7 +103,7 @@ class Navigation {
 	 * @param  {string} target
 	 * @return {object} navItem
 	 */
-	get(target) {
+	get(target?: string): NavigationTocItem | NavigationTocItem[] | undefined {
 		var index;
 
 		if(!target) {
@@ -103,12 +126,16 @@ class Navigation {
 	 * @param  {array} navItems
 	 * @return {object} navItem
 	 */
-	getByIndex(target, index, navItems) {
+	getByIndex(
+		target: string,
+		index: number | undefined,
+		navItems: NavigationTocItem[],
+	): NavigationTocItem | undefined {
 		if (navItems.length === 0) {
 			return;
 		}
 
-		const item = navItems[index];
+		const item = typeof index === "number" ? navItems[index] : undefined;
 		if (item && (target === item.id || target === item.href)) {
 			return item;
 		} else {
@@ -129,7 +156,7 @@ class Navigation {
 	 * @param  {string} type
 	 * @return {object} landmarkItem
 	 */
-	landmark(type) {
+	landmark(type?: string): NavigationLandmarkItem | NavigationLandmarkItem[] | undefined {
 		var index;
 
 		if(!type) {
@@ -147,9 +174,9 @@ class Navigation {
 	 * @param  {document} navHtml
 	 * @return {array} navigation list
 	 */
-	parseNav(navHtml){
+	parseNav(navHtml: any): NavigationTocItem[] {
 		var navElement = querySelectorByType(navHtml, "nav", "toc");
-		var list = [];
+		var list: NavigationTocItem[] = [];
 
 		if (!navElement) return list;
 
@@ -166,8 +193,8 @@ class Navigation {
 	 * @param  {string} parent id
 	 * @return {array} navigation list
 	 */
-	parseNavList(navListHtml, parent) {
-		const result = [];
+	parseNavList(navListHtml: any, parent?: string): NavigationTocItem[] {
+		const result: NavigationTocItem[] = [];
 
 		if (!navListHtml) return result;
 		if (!navListHtml.children) return result;
@@ -189,7 +216,7 @@ class Navigation {
 	 * @param  {element} item
 	 * @return {object} navItem
 	 */
-	navItem(item, parent) {
+	navItem(item: any, parent?: string): NavigationTocItem | undefined {
 		let id = item.getAttribute("id") || undefined;
 		let content = filterChildren(item, "a", true)
 			|| filterChildren(item, "span", true);
@@ -205,7 +232,7 @@ class Navigation {
 		}
 		let text = content.textContent || "";
 
-		let subitems = [];
+		let subitems: NavigationTocItem[] = [];
 		let nested = filterChildren(item, "ol", true);
 		if (nested) {
 			subitems = 	this.parseNavList(nested, id);
@@ -226,13 +253,13 @@ class Navigation {
 	 * @param  {document} navHtml
 	 * @return {array} landmarks list
 	 */
-	parseLandmarks(navHtml){
+	parseLandmarks(navHtml: any): NavigationLandmarkItem[] {
 		var navElement = querySelectorByType(navHtml, "nav", "landmarks");
 		var navItems = navElement ? qsa(navElement, "li") : [];
 		var length = navItems.length;
 		var i;
-		var list = [];
-		var item;
+		var list: NavigationLandmarkItem[] = [];
+		var item: NavigationLandmarkItem | undefined;
 
 		if(!navItems || length === 0) return list;
 
@@ -253,7 +280,7 @@ class Navigation {
 	 * @param  {element} item
 	 * @return {object} landmarkItem
 	 */
-	landmarkItem(item){
+	landmarkItem(item: any): NavigationLandmarkItem | undefined {
 		let content = filterChildren(item, "a", true);
 
 		if (!content) {
@@ -277,13 +304,13 @@ class Navigation {
 	 * @param  {document} navHtml
 	 * @return {array} navigation list
 	 */
-	parseNcx(tocXml){
+	parseNcx(tocXml: any): NavigationTocItem[] {
 		var navPoints = qsa(tocXml, "navPoint");
 		var length = navPoints.length;
 		var i;
-		var toc = {};
-		var list = [];
-		var item, parent;
+		var toc: Record<string, NavigationTocItem> = {};
+		var list: NavigationTocItem[] = [];
+		var item: any, parent: NavigationTocItem | undefined;
 
 		if(!navPoints || length === 0) return list;
 
@@ -307,13 +334,13 @@ class Navigation {
 	 * @param  {element} item
 	 * @return {object} ncxItem
 	 */
-	ncxItem(item){
+	ncxItem(item: any): any {
 		var id = item.getAttribute("id") || false,
 				content = qs(item, "content"),
 				src = content.getAttribute("src"),
 				navLabel = qs(item, "navLabel"),
 				text = navLabel.textContent ? navLabel.textContent : "",
-				subitems = [],
+				subitems: NavigationTocItem[] = [],
 				parentNode = item.parentNode,
 				parent;
 
@@ -336,8 +363,8 @@ class Navigation {
 	 * @param  {object} json the items to be loaded
 	 * @return {Array} navItems
 	 */
-	load(json) {
-		return json.map(item => {
+	load(json: any[]): any[] {
+		return json.map((item) => {
 			item.label = item.title;
 			item.subitems = item.children ? this.load(item.children) : [];
 			return item;
@@ -349,7 +376,7 @@ class Navigation {
 	 * @param  {Function} fn function to run on each item
 	 * @return {method} forEach loop
 	 */
-	forEach(fn) {
+	forEach(fn: (item: NavigationTocItem) => void): void {
 		return this.toc.forEach(fn);
 	}
 }
