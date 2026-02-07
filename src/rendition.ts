@@ -48,6 +48,8 @@ import ContinuousViewManager from "./managers/continuous/index";
  * @param {boolean | number} [options.prefetch=false] prefetch neighboring sections after display
  */
 class Rendition {
+	[key: string]: any;
+
 	constructor(book, options) {
 
 		this.settings = extend(this.settings || {}, {
@@ -720,7 +722,7 @@ class Rendition {
 	 * @param {number | "fit-width" | "fit-page"} [zoom]
 	 * @returns {number | "fit-width" | "fit-page" | undefined}
 	 */
-	fixedLayoutZoom(zoom) {
+	fixedLayoutZoom(zoom?) {
 		if (typeof zoom !== "undefined") {
 			const isValidNumber =
 				typeof zoom === "number" && isFinite(zoom) && zoom > 0;
@@ -904,7 +906,7 @@ class Rendition {
 		let start = location[0];
 		let end = location[location.length-1];
 
-		let located = {
+		let located: any = {
 			start: {
 				index: start.index,
 				href: start.href,
