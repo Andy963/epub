@@ -1,18 +1,18 @@
 const EPUB_TYPE_NS = "http://www.idpf.org/2007/ops";
 
-function splitTokens(value) {
+function splitTokens(value: unknown): Set<string> {
 	if (!value || typeof value !== "string") {
 		return new Set();
 	}
 	return new Set(value.split(/\s+/).filter(Boolean));
 }
 
-export function getEpubTypes(element) {
+export function getEpubTypes(element: Element | null | undefined): Set<string> {
 	if (!element) {
 		return new Set();
 	}
 
-	let raw;
+	let raw: string | null | undefined;
 	try {
 		raw = element.getAttributeNS && element.getAttributeNS(EPUB_TYPE_NS, "type");
 	} catch (e) {
@@ -26,14 +26,17 @@ export function getEpubTypes(element) {
 	return splitTokens(raw);
 }
 
-export function getRoles(element) {
+export function getRoles(element: Element | null | undefined): Set<string> {
 	if (!element || typeof element.getAttribute !== "function") {
 		return new Set();
 	}
 	return splitTokens(element.getAttribute("role"));
 }
 
-export function isSuperscript(element, win) {
+export function isSuperscript(
+	element: Element | null | undefined,
+	win: Window | null | undefined
+): boolean {
 	if (!element) {
 		return false;
 	}
@@ -61,7 +64,10 @@ export function isSuperscript(element, win) {
 const REF_TYPES = ["biblioref", "glossref", "noteref"];
 const REF_ROLES = ["doc-biblioref", "doc-glossref", "doc-noteref"];
 
-export function classifyFootnoteReference(anchor, win) {
+export function classifyFootnoteReference(anchor: Element, win: Window | null | undefined): {
+	yes: boolean;
+	maybe: () => boolean;
+} {
 	const types = getEpubTypes(anchor);
 	const roles = getRoles(anchor);
 
@@ -90,7 +96,9 @@ export function classifyFootnoteReference(anchor, win) {
 	return { yes, maybe };
 }
 
-export function getReferencedType(element) {
+export type ReferencedType = "biblioentry" | "definition" | "endnote" | "footnote" | "note";
+
+export function getReferencedType(element: Element | null | undefined): ReferencedType | null {
 	const types = getEpubTypes(element);
 	const roles = getRoles(element);
 
@@ -115,7 +123,10 @@ export function getReferencedType(element) {
 
 const INLINE_SELECTOR = "a, span, sup, sub, em, strong, i, b, small, big";
 
-export function extractFootnoteTarget(doc, anchor) {
+export function extractFootnoteTarget(
+	doc: Document,
+	anchor: (doc: Document) => Element | null
+): Element | null {
 	let element = anchor(doc);
 	const target = element;
 
@@ -137,4 +148,3 @@ export function extractFootnoteTarget(doc, anchor) {
 
 	return element;
 }
-
