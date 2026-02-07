@@ -12,6 +12,8 @@ import PdfSection from "./section";
 import PdfView from "./view";
 
 class FenwickTree {
+	[key: string]: any;
+
 	constructor(size) {
 		this.size =
 			typeof size === "number" && isFinite(size) && size > 0
@@ -62,6 +64,8 @@ class FenwickTree {
 }
 
 class PdfBook {
+	[key: string]: any;
+
 	constructor(url, options) {
 		if (
 			typeof options === "undefined" &&
@@ -170,16 +174,16 @@ class PdfBook {
 				? Math.floor(this.settings.maxCachedPages)
 				: 0;
 
-		this.pageCache = new ResourceCache({
-			revoke: (value) => {
-				if (!value || typeof value !== "object") {
-					return;
-				}
-				const url = value.url;
-				if (url && typeof url === "string" && url.indexOf("blob:") === 0) {
-					URL.revokeObjectURL(url);
-				}
-			},
+			this.pageCache = new ResourceCache({
+				revoke: (value) => {
+					if (!value || typeof value !== "object") {
+						return;
+					}
+					const url = (value as any).url;
+					if (url && typeof url === "string" && url.indexOf("blob:") === 0) {
+						URL.revokeObjectURL(url);
+					}
+				},
 			retain: maxCachedPages > 0,
 			maxEntries: maxCachedPages,
 		});
@@ -234,11 +238,11 @@ class PdfBook {
 			pdfjs.GlobalWorkerOptions.workerSrc = this.settings.workerSrc;
 		}
 
-		const documentOptions = {
-			password: this.settings.password,
-			withCredentials: this.settings.withCredentials,
-			httpHeaders: this.settings.httpHeaders,
-		};
+			const documentOptions: any = {
+				password: this.settings.password,
+				withCredentials: this.settings.withCredentials,
+				httpHeaders: this.settings.httpHeaders,
+			};
 
 		if (typeof input === "string") {
 			documentOptions.url = input;
@@ -1148,30 +1152,31 @@ class PdfBook {
 					: !matchDiacritics && matchCase
 						? "case"
 						: "base";
-		const granularity = matchWholeWords ? "word" : "grapheme";
+			const granularity = matchWholeWords ? "word" : "grapheme";
 
-		let segmenter;
-		let collator;
-		if (typeof Intl !== "undefined" && Intl.Segmenter && Intl.Collator) {
-			try {
-				segmenter = new Intl.Segmenter(locales, {
-					usage: "search",
-					granularity,
-				});
-				collator = new Intl.Collator(locales, { sensitivity });
-			} catch (e) {
+			let segmenter;
+			let collator;
+			const IntlAny = Intl as any;
+			if (typeof Intl !== "undefined" && IntlAny.Segmenter && IntlAny.Collator) {
 				try {
-					segmenter = new Intl.Segmenter("en", {
+					segmenter = new IntlAny.Segmenter(locales, {
 						usage: "search",
 						granularity,
 					});
-					collator = new Intl.Collator("en", { sensitivity });
-				} catch (e2) {
-					segmenter = undefined;
-					collator = undefined;
+					collator = new IntlAny.Collator(locales, { sensitivity });
+				} catch (e) {
+					try {
+						segmenter = new IntlAny.Segmenter("en", {
+							usage: "search",
+							granularity,
+						});
+						collator = new IntlAny.Collator("en", { sensitivity });
+					} catch (e2) {
+						segmenter = undefined;
+						collator = undefined;
+					}
 				}
 			}
-		}
 
 		let nonFormattingRegex;
 		try {
@@ -1420,30 +1425,31 @@ class PdfBook {
 					: !matchDiacritics && matchCase
 						? "case"
 						: "base";
-		const granularity = matchWholeWords ? "word" : "grapheme";
+			const granularity = matchWholeWords ? "word" : "grapheme";
 
-		let segmenter;
-		let collator;
-		if (typeof Intl !== "undefined" && Intl.Segmenter && Intl.Collator) {
-			try {
-				segmenter = new Intl.Segmenter(locales, {
-					usage: "search",
-					granularity,
-				});
-				collator = new Intl.Collator(locales, { sensitivity });
-			} catch (e) {
+			let segmenter;
+			let collator;
+			const IntlAny = Intl as any;
+			if (typeof Intl !== "undefined" && IntlAny.Segmenter && IntlAny.Collator) {
 				try {
-					segmenter = new Intl.Segmenter("en", {
+					segmenter = new IntlAny.Segmenter(locales, {
 						usage: "search",
 						granularity,
 					});
-					collator = new Intl.Collator("en", { sensitivity });
-				} catch (e2) {
-					segmenter = undefined;
-					collator = undefined;
+					collator = new IntlAny.Collator(locales, { sensitivity });
+				} catch (e) {
+					try {
+						segmenter = new IntlAny.Segmenter("en", {
+							usage: "search",
+							granularity,
+						});
+						collator = new IntlAny.Collator("en", { sensitivity });
+					} catch (e2) {
+						segmenter = undefined;
+						collator = undefined;
+					}
 				}
 			}
-		}
 
 		let nonFormattingRegex;
 		try {
@@ -1646,7 +1652,7 @@ class PdfBook {
 		].join("");
 	}
 
-	pageCacheKey(pageNumber, renderScale, options) {
+		pageCacheKey(pageNumber, renderScale?, options?) {
 		const page =
 			typeof pageNumber === "number" && isFinite(pageNumber)
 				? Math.floor(pageNumber)
@@ -1675,7 +1681,7 @@ class PdfBook {
 		return `page:${page}|render:${scale}|${textLayer}|${annotationLayer}`;
 	}
 
-	async renderPageData(pageNumber, options) {
+		async renderPageData(pageNumber, options?) {
 		const signal = options && options.signal;
 		if (signal && signal.aborted) {
 			throw {
