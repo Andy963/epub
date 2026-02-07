@@ -1,16 +1,28 @@
 import {defer, isXml, parse} from "./core";
 import Path from "./path";
 
-function request(url, type, withCredentials, headers, options) {
-	var supportsURL = (typeof window != "undefined") ? window.URL : false; // TODO: fallback for url if window isn't defined
-	var BLOB_RESPONSE = supportsURL ? "blob" : "arraybuffer";
+export interface RequestOptions {
+	signal?: AbortSignal;
+}
 
-	var deferred = new defer();
+export type RequestHeaders = Record<string, string>;
 
-	var xhr = new XMLHttpRequest();
-	var abortSignal = options && options.signal;
-	var abortListener = undefined;
-	var aborted = false;
+function request(
+	url: string,
+	type?: string | null,
+	withCredentials?: boolean,
+	headers?: RequestHeaders,
+	options?: RequestOptions
+): Promise<any> {
+	const supportsURL = (typeof window !== "undefined") && typeof window.URL !== "undefined"; // TODO: fallback for url if window isn't defined
+	const BLOB_RESPONSE = supportsURL ? "blob" : "arraybuffer";
+
+	const deferred = new (defer as any)();
+
+	const xhr = new XMLHttpRequest();
+	const abortSignal = options && options.signal;
+	let abortListener: (() => void) | undefined = undefined;
+	let aborted = false;
 
 	//-- Check from PDF.js:
 	//   https://github.com/mozilla/pdf.js/blob/master/web/compatibility.js
@@ -106,14 +118,14 @@ function request(url, type, withCredentials, headers, options) {
 		deferred.reject(e);
 	}
 
-	function handler() {
+	function handler(this: XMLHttpRequest) {
 		if (this.readyState === XMLHttpRequest.DONE) {
 			if (aborted) {
 				cleanupAbortListener();
 				return;
 			}
 			cleanupAbortListener();
-			var responseXML = false;
+			let responseXML: Document | null = null;
 
 			if(this.responseType === "" || this.responseType === "document") {
 				responseXML = this.responseXML;
@@ -141,18 +153,18 @@ function request(url, type, withCredentials, headers, options) {
 					return deferred.promise;
 				}
 				if(responseXML){
-					r = this.responseXML;
+					r = responseXML;
 				} else
 				if(isXml(type)){
 					// xhr.overrideMimeType("text/xml"); // for OPF parsing
 					// If this.responseXML wasn't set, try to parse using a DOMParser from text
-					r = parse(this.response, "text/xml");
+					r = parse(this.response, "text/xml", false);
 				}else
 				if(type == "xhtml"){
-					r = parse(this.response, "application/xhtml+xml");
+					r = parse(this.response, "application/xhtml+xml", false);
 				}else
 				if(type == "html" || type == "htm"){
-					r = parse(this.response, "text/html");
+					r = parse(this.response, "text/html", false);
 				}else
 				if(type == "json"){
 					r = JSON.parse(this.response);
