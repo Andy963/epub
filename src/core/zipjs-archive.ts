@@ -2,8 +2,27 @@ import { defer, isXml, parse } from "../utils/core";
 import mime from "../utils/mime";
 import Path from "../utils/path";
 
+export interface ZipJsArchiveOptions {
+	zipjs?: unknown;
+	requestHeaders?: Record<string, string>;
+}
+
+export interface ZipJsArchiveObfuscation {
+	deobfuscate: (path: string, bytes: Uint8Array) => Uint8Array;
+}
+
+type UrlCache = Record<string, string>;
+
 class ZipJsArchive {
-	constructor(options) {
+	private settings: ZipJsArchiveOptions;
+	private zipjs: any | undefined;
+	private reader: any | undefined;
+	private entries: any[] | undefined;
+	private entryMap: Map<string, any>;
+	private obfuscation: ZipJsArchiveObfuscation | undefined;
+	private urlCache: UrlCache;
+
+	constructor(options?: ZipJsArchiveOptions) {
 		this.settings = options || {};
 
 		this.zipjs = undefined;
@@ -15,11 +34,11 @@ class ZipJsArchive {
 		this.urlCache = {};
 	}
 
-	setObfuscation(obfuscation) {
+	setObfuscation(obfuscation: ZipJsArchiveObfuscation | undefined): void {
 		this.obfuscation = obfuscation;
 	}
 
-	uint8ArrayToBase64(uint8array) {
+	private uint8ArrayToBase64(uint8array: Uint8Array): string {
 		let binary = "";
 		const chunkSize = 0x8000;
 		for (let i = 0; i < uint8array.length; i += chunkSize) {
@@ -29,7 +48,7 @@ class ZipJsArchive {
 		return btoa(binary);
 	}
 
-	async zipjsLib() {
+	private async zipjsLib(): Promise<any | undefined> {
 		if (this.settings.zipjs) {
 			return this.settings.zipjs;
 		}
@@ -39,19 +58,20 @@ class ZipJsArchive {
 		}
 
 		if (typeof globalThis !== "undefined") {
-			if (globalThis.zipjs) {
-				this.zipjs = globalThis.zipjs;
+			const globalAny = globalThis as any;
+			if (globalAny.zipjs) {
+				this.zipjs = globalAny.zipjs;
 				return this.zipjs;
 			}
-			if (globalThis.zip) {
-				this.zipjs = globalThis.zip;
+			if (globalAny.zip) {
+				this.zipjs = globalAny.zip;
 				return this.zipjs;
 			}
 		}
 		return;
 	}
 
-	decodePath(url) {
+	private decodePath(url: string): string {
 		if (!url || typeof url !== "string") {
 			return "";
 		}
@@ -64,7 +84,7 @@ class ZipJsArchive {
 		return decode(stripped);
 	}
 
-	async open(input, isBase64) {
+	async open(input: unknown, isBase64?: boolean): Promise<void> {
 		const zipjs = await this.zipjsLib();
 		if (!zipjs || typeof zipjs.ZipReader !== "function") {
 			throw new Error(
@@ -100,8 +120,9 @@ class ZipJsArchive {
 			reader = new BlobReader(input);
 		} else if (input instanceof ArrayBuffer) {
 			reader = new Uint8ArrayReader(new Uint8Array(input));
-		} else if (input && typeof input.buffer === "object") {
-			const array = input instanceof Uint8Array ? input : new Uint8Array(input);
+		} else if (input && typeof (input as any).buffer === "object") {
+			const array =
+				input instanceof Uint8Array ? input : new Uint8Array(input as any);
 			reader = new Uint8ArrayReader(array);
 		} else {
 			throw new Error("Unsupported zip input");
@@ -119,7 +140,7 @@ class ZipJsArchive {
 		});
 	}
 
-	async openUrl(zipUrl, isBase64) {
+	async openUrl(zipUrl: string, isBase64?: boolean): Promise<void> {
 		if (!zipUrl || typeof zipUrl !== "string") {
 			throw new Error("zipUrl is required");
 		}
@@ -173,7 +194,7 @@ class ZipJsArchive {
 		});
 	}
 
-	request(url, type) {
+	request(url: string, type?: string): Promise<unknown> {
 		const deferred = new defer();
 
 		if (!type) {
@@ -204,17 +225,17 @@ class ZipJsArchive {
 		return deferred.promise;
 	}
 
-	handleResponse(response, type) {
+	private handleResponse(response: any, type: string): unknown {
 		let r;
 
 		if (type === "json") {
 			r = JSON.parse(response);
 		} else if (isXml(type)) {
-			r = parse(response, "text/xml");
+			r = parse(response, "text/xml", false);
 		} else if (type === "xhtml") {
-			r = parse(response, "application/xhtml+xml");
+			r = parse(response, "application/xhtml+xml", false);
 		} else if (type === "html" || type === "htm") {
-			r = parse(response, "text/html");
+			r = parse(response, "text/html", false);
 		} else {
 			r = response;
 		}
@@ -222,7 +243,7 @@ class ZipJsArchive {
 		return r;
 	}
 
-	getEntry(url) {
+	private getEntry(url: string): any | undefined {
 		const decodedPath = this.decodePath(url);
 		if (!decodedPath) {
 			return;
@@ -230,7 +251,7 @@ class ZipJsArchive {
 		return this.entryMap.get(decodedPath);
 	}
 
-	async getBlob(url, mimeType) {
+	private async getBlob(url: string, mimeType?: string): Promise<Blob | undefined> {
 		const entry = this.getEntry(url);
 		if (!entry) {
 			return;
@@ -255,7 +276,7 @@ class ZipJsArchive {
 		return entry.getData(new BlobWriter(mimeType));
 	}
 
-	async getText(url, encoding) {
+	private async getText(url: string, encoding?: string): Promise<string | undefined> {
 		const entry = this.getEntry(url);
 		if (!entry) {
 			return;
@@ -266,7 +287,7 @@ class ZipJsArchive {
 		return entry.getData(new TextWriter(encoding));
 	}
 
-	async getBase64(url, mimeType) {
+	private async getBase64(url: string, mimeType?: string): Promise<string | undefined> {
 		const entry = this.getEntry(url);
 		if (!entry) {
 			return;
@@ -292,9 +313,10 @@ class ZipJsArchive {
 		return entry.getData(new Data64URIWriter(mimeType));
 	}
 
-	createUrl(url, options) {
+	createUrl(url: string, options?: { base64?: boolean }): Promise<string> {
 		const deferred = new defer();
-		const _URL = window.URL || window.webkitURL || window.mozURL;
+		const w = window as any;
+		const _URL = window.URL || w.webkitURL || w.mozURL;
 		const useBase64 = options && options.base64;
 
 		if (url in this.urlCache) {
@@ -336,8 +358,9 @@ class ZipJsArchive {
 		return deferred.promise;
 	}
 
-	revokeUrl(url) {
-		const _URL = window.URL || window.webkitURL || window.mozURL;
+	revokeUrl(url: string): void {
+		const w = window as any;
+		const _URL = window.URL || w.webkitURL || w.mozURL;
 		const fromCache = this.urlCache[url];
 		if (fromCache) {
 			try {
@@ -348,8 +371,9 @@ class ZipJsArchive {
 		}
 	}
 
-	async destroy() {
-		const _URL = window.URL || window.webkitURL || window.mozURL;
+	async destroy(): Promise<void> {
+		const w = window as any;
+		const _URL = window.URL || w.webkitURL || w.mozURL;
 		for (const key in this.urlCache) {
 			const value = this.urlCache[key];
 			if (value && typeof value === "string" && value.indexOf("blob:") === 0) {
