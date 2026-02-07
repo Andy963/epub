@@ -11,6 +11,9 @@
   },
   "scripts": {
     "test": "karma start --single-run --browsers ChromeHeadlessNoSandbox",
+    "typecheck": "tsc -p tsconfig.json",
+    "types:build": "tsc -p tsconfig.types.json",
+    "types:test": "tsc -p types/tsconfig.json",
     "docs": "documentation build src/epub.js -f html -o documentation/html/",
     "docs:html": "documentation build src/epub.js -f html -o documentation/html/",
     "docs:md": "documentation build src/epub.js -f md -o documentation/md/API.md",
