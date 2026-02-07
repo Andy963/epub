@@ -2,6 +2,18 @@ import { extend } from "./utils/core";
 import { EVENTS } from "./utils/constants";
 import EventEmitter from "event-emitter";
 
+export interface LayoutSettings {
+	layout?: string;
+	spread?: string | boolean;
+	minSpreadWidth?: number;
+	evenSpreads?: boolean;
+	flow?: string;
+	viewport?: string;
+	fixedLayoutZoom?: number;
+	direction?: string;
+	[key: string]: any;
+}
+
 /**
  * Figures out the CSS values to apply for a layout
  * @class
@@ -12,7 +24,31 @@ import EventEmitter from "event-emitter";
  * @param {boolean} [settings.evenSpreads=false]
  */
 class Layout {
-	constructor(settings) {
+	settings: LayoutSettings;
+	name: string;
+	private _spread: boolean;
+	private _minSpreadWidth: number;
+	private _evenSpreads: boolean;
+	private _flow: "paginated" | "scrolled";
+
+	width: number;
+	height: number;
+	spreadWidth: number;
+	pageWidth: number;
+	delta: number;
+
+	columnWidth: number;
+	gap: number;
+	divisor: number;
+
+	props: Record<string, any>;
+
+	on: (event: string, listener: (...args: any[]) => void) => this;
+	once: (event: string, listener: (...args: any[]) => void) => this;
+	off: (event: string, listener?: (...args: any[]) => void) => this;
+	emit: (event: string, ...args: any[]) => boolean;
+
+	constructor(settings: LayoutSettings) {
 		this.settings = settings;
 		this.name = settings.layout || "reflowable";
 		this._spread = !(settings.spread === "none" || settings.spread === false);
@@ -57,7 +93,7 @@ class Layout {
 	 * @param  {string} flow paginated | scrolled
 	 * @return {string} simplified flow
 	 */
-	flow(flow) {
+	flow(flow?: string): "paginated" | "scrolled" {
 		if (typeof(flow) != "undefined") {
 			if (flow === "scrolled" ||
 					flow === "scrolled-continuous" ||
@@ -79,7 +115,7 @@ class Layout {
 	 * @param  {number} min integer in pixels
 	 * @return {boolean} spread true | false
 	 */
-	spread(spread, min) {
+	spread(spread?: string | boolean, min?: number): boolean {
 
 		if (typeof spread !== "undefined") {
 			this._spread = !(spread === "none" || spread === false);
@@ -87,7 +123,7 @@ class Layout {
 			this.update({spread: this._spread});
 		}
 
-		if (min >= 0) {
+		if (typeof min === "number" && min >= 0) {
 			this._minSpreadWidth = min;
 		}
 
@@ -101,7 +137,7 @@ class Layout {
 	 * @param  {number} _gap    width of the gap between columns
 	 * @param  {number} [_maxColumnCount] maximum visible column count in paginated flow
 	 */
-	calculate(_width, _height, _gap, _maxColumnCount){
+	calculate(_width: number, _height: number, _gap?: number, _maxColumnCount?: number): void {
 
 		var divisor = 1;
 		var gap = _gap || 0;
@@ -217,7 +253,7 @@ class Layout {
 	 * @param  {Contents} contents
 	 * @return {Promise}
 	 */
-		format(contents, section, axis){
+		format(contents: any, section?: any, axis?: string): any {
 			var formating;
 
 			if (this.name === "pre-paginated") {
@@ -249,7 +285,7 @@ class Layout {
 	 * @param  {number} pageLength
 	 * @return {{spreads: Number, pages: Number}}
 	 */
-	count(totalLength, pageLength) {
+	count(totalLength: number, pageLength?: number): { spreads: number; pages: number } {
 
 		let spreads, pages;
 
@@ -278,7 +314,7 @@ class Layout {
 	 * @private
 	 * @param  {object} props
 	 */
-	update(props) {
+	private update(props: Record<string, any>): void {
 		// Remove props that haven't changed
 		Object.keys(props).forEach((propName) => {
 			if (this.props[propName] === props[propName]) {
@@ -287,7 +323,7 @@ class Layout {
 		});
 
 		if(Object.keys(props).length > 0) {
-			let newProps = extend(this.props, props);
+			let newProps = (extend as any)(this.props, props);
 			this.emit(EVENTS.LAYOUT.UPDATED, newProps, props);
 		}
 	}
