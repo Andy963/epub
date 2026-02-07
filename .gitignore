@@ -7,6 +7,8 @@ bower_components
 books
 lib
 dist
+es
 documentation/html
 types/*.js
+types/generated
 epubjs-*.tgz

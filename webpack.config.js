@@ -43,6 +43,7 @@ module.exports = {
 	},
 	plugins: [],
 	resolve: {
+		extensions: [".ts", ".js"],
 		alias: {
 			path: "path-webpack"
 		}
@@ -60,18 +61,21 @@ module.exports = {
 	module: {
 		rules: [
 			{
-				test: /\.js$/,
+				test: /\.[jt]s$/,
 				exclude: /node_modules/,
 				use: {
 					loader: "babel-loader",
 					options: {
-						presets: [["@babel/preset-env", {
-							targets: LEGACY ? "defaults" : "last 2 Chrome versions, last 2 Safari versions, last 2 ChromeAndroid versions, last 2 iOS versions, last 2 Firefox versions, last 2 Edge versions",
-							corejs: 3,
-							useBuiltIns: "usage",
-							bugfixes: true,
-							modules: false
-						}]]
+						presets: [
+							["@babel/preset-env", {
+								targets: LEGACY ? "defaults" : "last 2 Chrome versions, last 2 Safari versions, last 2 ChromeAndroid versions, last 2 iOS versions, last 2 Firefox versions, last 2 Edge versions",
+								corejs: 3,
+								useBuiltIns: "usage",
+								bugfixes: true,
+								modules: false
+							}],
+							"@babel/preset-typescript"
+						]
 					}
 				}
 			}

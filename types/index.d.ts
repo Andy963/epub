@@ -1,3 +1,8 @@
+/// <reference path="./shims/event-emitter.d.ts" />
+/// <reference path="./shims/marks-pane.d.ts" />
+/// <reference path="./shims/path-webpack.d.ts" />
+/// <reference path="./shims/jszip-dist-jszip.d.ts" />
+
 // Type definitions for epubjs 0.3
 // Project: https://github.com/futurepress/epub.js#readme
 // Definitions by: Fred Chasen <https://github.com/fchasen>

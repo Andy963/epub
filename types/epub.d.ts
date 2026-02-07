@@ -7,7 +7,10 @@ declare function Epub(urlOrData: string | ArrayBuffer | Uint8Array | Blob, optio
 declare function Epub(options?: BookOptions) : Book;
 
 declare namespace Epub {
-  const Book: typeof Book;
-  const PdfBook: typeof PdfBook;
-  function pdf(urlOrData?: string | ArrayBuffer | Uint8Array | Blob, options?: PdfBookOptions): PdfBook;
+  const Book: typeof import("./book").default;
+  const PdfBook: typeof import("./pdfbook").default;
+  function pdf(
+    urlOrData?: string | ArrayBuffer | Uint8Array | Blob,
+    options?: PdfBookOptions
+  ): import("./pdfbook").default;
 }
