@@ -2,7 +2,22 @@ import {uuid, isNumber, isElement, windowBounds, extend} from "../../utils/core"
 import throttle from 'lodash/throttle'
 
 class Stage {
-	constructor(_options) {
+	settings: any;
+	id: string;
+
+	container: HTMLElement;
+	wrapper: HTMLElement | undefined;
+	element: HTMLElement | undefined;
+
+	resizeFunc: any;
+	orientationChangeFunc: any;
+
+	containerStyles: any;
+	containerPadding: any;
+
+	sheet: CSSStyleSheet | undefined;
+
+	constructor(_options?: any) {
 		this.settings = _options || {};
 		this.id = "epubjs-container-" + uuid();
 
@@ -18,7 +33,7 @@ class Stage {
 	* Creates an element to render to.
 	* Resizes to passed width and height or to the elements size
 	*/
-	create(options){
+	create(options: any): HTMLElement {
 		let height  = options.height;// !== false ? options.height : "100%";
 		let width   = options.width;// !== false ? options.width : "100%";
 		let overflow  = options.overflow || false;
@@ -134,7 +149,7 @@ class Stage {
 		return container;
 	}
 
-	wrap(container) {
+	wrap(container: HTMLElement): HTMLElement {
 		var wrapper = document.createElement("div");
 
 		wrapper.style.visibility = "hidden";
@@ -147,7 +162,7 @@ class Stage {
 	}
 
 
-	getElement(_element){
+	getElement(_element: any): HTMLElement {
 		var element;
 
 		if(isElement(_element)) {
@@ -163,7 +178,7 @@ class Stage {
 		return element;
 	}
 
-	attachTo(what){
+	attachTo(what: any){
 
 		var element = this.getElement(what);
 		var base;
@@ -186,11 +201,11 @@ class Stage {
 
 	}
 
-	getContainer() {
+	getContainer(): HTMLElement {
 		return this.container;
 	}
 
-	onResize(func){
+	onResize(func: (...args: any[]) => any){
 		// Only listen to window for resize event if width and height are not fixed.
 		// This applies if it is set to a percent or auto.
 		if(!isNumber(this.settings.width) ||
@@ -201,12 +216,12 @@ class Stage {
 
 	}
 
-	onOrientationChange(func){
+	onOrientationChange(func: (...args: any[]) => any){
 		this.orientationChangeFunc = func;
 		window.addEventListener("orientationchange", this.orientationChangeFunc, false);
 	}
 
-	size(width, height){
+	size(width?: any, height?: any){
 		var bounds;
 		let _width = width || this.settings.width;
 		let _height = height || this.settings.height;
@@ -307,7 +322,7 @@ class Stage {
 
 	}
 
-	getSheet(){
+	getSheet(): CSSStyleSheet {
 		var style = document.createElement("style");
 
 		// WebKit hack --> https://davidwalsh.name/add-rules-stylesheets
@@ -315,10 +330,10 @@ class Stage {
 
 		document.head.appendChild(style);
 
-		return style.sheet;
+		return style.sheet as any;
 	}
 
-	addStyleRules(selector, rulesArray){
+	addStyleRules(selector: string, rulesArray: Array<Record<string, string>>){
 		var scope = "#" + this.id + " ";
 		var rules = "";
 
@@ -337,7 +352,7 @@ class Stage {
 		this.sheet.insertRule(scope + selector + " {" + rules + "}", 0);
 	}
 
-	axis(axis) {
+	axis(axis: string): void {
 		if(axis === "horizontal") {
 			this.container.style.display = "flex";
 			this.container.style.flexDirection = "row";
@@ -358,7 +373,7 @@ class Stage {
 	// 	this.orientation = orientation;
 	// }
 
-	direction(dir) {
+	direction(dir: string): void {
 		if (this.container) {
 			this.container.dir = dir;
 			this.container.style["direction"] = dir;
@@ -370,7 +385,7 @@ class Stage {
 		this.settings.dir = dir;
 	}
 
-	overflow(overflow) {
+	overflow(overflow: any): void {
 		if (this.container) {
 			if (overflow === "scroll" && this.settings.axis === "vertical") {
 				this.container.style["overflow-y"] = overflow;
@@ -385,7 +400,7 @@ class Stage {
 		this.settings.overflow = overflow;
 	}
 
-	destroy() {
+	destroy(): void {
 		var base;
 
 		if (this.element) {
@@ -400,8 +415,12 @@ class Stage {
 				this.element.removeChild(this.container);
 			}
 
-			window.removeEventListener("resize", this.resizeFunc);
-			window.removeEventListener("orientationChange", this.orientationChangeFunc);
+			if (this.resizeFunc) {
+				window.removeEventListener("resize", this.resizeFunc);
+			}
+			if (this.orientationChangeFunc) {
+				window.removeEventListener("orientationChange", this.orientationChangeFunc);
+			}
 
 		}
 	}
