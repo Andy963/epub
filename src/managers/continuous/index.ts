@@ -239,7 +239,7 @@ class ContinuousViewManager extends DefaultViewManager {
 
 	}
 
-	check(_offsetLeft, _offsetTop){
+	check(_offsetLeft?, _offsetTop?){
 		var checking = new defer();
 		var newViews = [];
 
@@ -361,7 +361,7 @@ class ContinuousViewManager extends DefaultViewManager {
 		return task.promise;
 	}
 
-	erase(view, above){ //Trim
+	erase(view, above?){ //Trim
 
 		var prevTop;
 		var prevLeft;
@@ -396,7 +396,7 @@ class ContinuousViewManager extends DefaultViewManager {
 
 	}
 
-	addEventListeners(stage){
+	addEventListeners(stage?){
 
 		window.addEventListener("unload", function(e){
 			this.ignore = true;

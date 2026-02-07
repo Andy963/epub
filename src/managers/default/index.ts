@@ -285,7 +285,7 @@ class DefaultViewManager {
 		}, epubcfi);
 	}
 
-	createView(section, forceRight) {
+	createView(section, forceRight?) {
 		return new this.View(section, extend(this.viewSettings, { forceRight }) );
 	}
 
