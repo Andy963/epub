@@ -5,6 +5,8 @@ import Contents from "../../contents";
 import { EVENTS } from "../../utils/constants";
 
 class InlineView {
+	[key: string]: any;
+
 	constructor(section, options) {
 		this.settings = extend({
 			ignoreClass : "",
@@ -105,7 +107,7 @@ class InlineView {
 		return this.frame;
 	}
 
-	render(request, show) {
+	render(request, show?) {
 
 		// view.onLayout = this.layout.format.bind(this.layout);
 		this.create();
@@ -163,7 +165,7 @@ class InlineView {
 	}
 
 	// Determine locks base on settings
-	size(_width, _height) {
+	size(_width?, _height?) {
 		var width = _width || this.settings.width;
 		var height = _height || this.settings.height;
 
@@ -283,7 +285,7 @@ class InlineView {
 	load(contents) {
 		var loading = new defer();
 		var loaded = loading.promise;
-		var doc = parse(contents, "text/html");
+		var doc = parse(contents, "text/html", false);
 		var body = qs(doc, "body");
 
 		/*
@@ -332,7 +334,7 @@ class InlineView {
 		//TODO: Add content listeners for expanding
 	}
 
-	removeListeners(layoutFunc) {
+	removeListeners(layoutFunc?) {
 		//TODO: remove content listeners for expanding
 	}
 
