@@ -1368,19 +1368,23 @@ class PdfBook {
 		].join("");
 	}
 
-	pageCacheKey(pageNumber) {
+	pageCacheKey(pageNumber, renderScale) {
 		const page =
 			typeof pageNumber === "number" && isFinite(pageNumber)
 				? Math.floor(pageNumber)
 				: 1;
-		const baseScale =
-			typeof this.settings.renderScale === "number" &&
-			this.settings.renderScale > 0
-				? this.settings.renderScale
-				: 1;
+		const resolvedScale =
+			typeof renderScale === "number" && isFinite(renderScale) && renderScale > 0
+				? renderScale
+				: typeof this.settings.renderScale === "number" &&
+					  isFinite(this.settings.renderScale) &&
+					  this.settings.renderScale > 0
+					? this.settings.renderScale
+					: 1;
+		const scale = Math.round(resolvedScale * 1000) / 1000;
 		const textLayer = this.settings.textLayer ? "text:1" : "text:0";
 		const annotationLayer = this.settings.annotationLayer ? "ann:1" : "ann:0";
-		return `page:${page}|scale:${baseScale}|${textLayer}|${annotationLayer}`;
+		return `page:${page}|render:${scale}|${textLayer}|${annotationLayer}`;
 	}
 
 	async renderPageData(pageNumber, options) {
@@ -1397,17 +1401,23 @@ class PdfBook {
 				? Math.floor(pageNumber)
 				: 1;
 		const page = await this.pdf.getPage(pageIndex);
-		const baseScale =
-			typeof this.settings.renderScale === "number" &&
-			this.settings.renderScale > 0
-				? this.settings.renderScale
-				: 1;
+		const resolvedScale =
+			options &&
+			typeof options.renderScale === "number" &&
+			isFinite(options.renderScale) &&
+			options.renderScale > 0
+				? options.renderScale
+				: typeof this.settings.renderScale === "number" &&
+					  isFinite(this.settings.renderScale) &&
+					  this.settings.renderScale > 0
+					? this.settings.renderScale
+					: 1;
 		const deviceScale =
 			typeof window !== "undefined" && window.devicePixelRatio
 				? window.devicePixelRatio
 				: 1;
-		const cssViewport = page.getViewport({ scale: baseScale });
-		const viewport = page.getViewport({ scale: baseScale * deviceScale });
+		const cssViewport = page.getViewport({ scale: 1 });
+		const viewport = page.getViewport({ scale: resolvedScale * deviceScale });
 
 		const canvas = document.createElement("canvas");
 		canvas.width = Math.floor(viewport.width);
