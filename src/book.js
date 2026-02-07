@@ -18,6 +18,7 @@ import DisplayOptions from "./displayoptions";
 import PerformanceTracker from "./utils/performance";
 import ResourceResolver from "./core/resource-resolver";
 import SpineLoader from "./core/spine-loader";
+import ZipJsArchive from "./core/zipjs-archive";
 import { EPUBJS_VERSION, EVENTS } from "./utils/constants";
 
 const CONTAINER_PATH = "META-INF/container.xml";
@@ -41,6 +42,8 @@ const INPUT_TYPE = {
  * @param {method} [options.requestMethod] a request function to use instead of the default
  * @param {boolean} [options.requestCredentials=undefined] send the xhr request withCredentials
  * @param {object} [options.requestHeaders=undefined] send the xhr request headers
+ * @param {("jszip"|"zipjs")} [options.archiveMethod=undefined] choose archive backend for `.epub` inputs
+ * @param {any} [options.zipjs=undefined] provide zip.js module when using `archiveMethod: "zipjs"`
  * @param {string} [options.encoding=binary] optional to pass 'binary' or base64' for archived Epubs
  * @param {string} [options.replacements=none] use base64, blobUrl, or none for replacing assets in archived Epubs
  * @param {method} [options.canonical] optional function to determine canonical urls for a path
@@ -70,6 +73,8 @@ class Book {
 			canonical: undefined,
 			openAs: undefined,
 			store: undefined,
+			archiveMethod: undefined,
+			zipjs: undefined,
 			metrics: false,
 			prefetchDistance: 1,
 			maxLoadedSections: 0,
@@ -287,8 +292,16 @@ class Book {
 		} else if (type === INPUT_TYPE.EPUB) {
 			this.archived = true;
 			this.url = new Url("/", "");
-			opening = this.request(input, "binary", this.settings.requestCredentials, this.settings.requestHeaders)
-				.then(this.openEpub.bind(this));
+			if (this.settings.archiveMethod === "zipjs") {
+				opening = this.openEpub(input);
+			} else {
+				opening = this.request(
+					input,
+					"binary",
+					this.settings.requestCredentials,
+					this.settings.requestHeaders
+				).then(this.openEpub.bind(this));
+			}
 		} else if(type == INPUT_TYPE.OPF) {
 			this.url = new Url(input);
 			opening = this.openPackaging(this.url.Path.toString());
@@ -812,8 +825,32 @@ class Book {
 	 * @return {Archive}
 	 */
 	unarchive(input, encoding) {
+		const isBase64 = encoding === "base64";
+
+		if (this.settings.archiveMethod === "zipjs") {
+			this.archive = new ZipJsArchive({
+				zipjs: this.settings.zipjs,
+				requestHeaders: this.settings.requestHeaders
+			});
+
+			if (typeof input === "string") {
+				if (isBase64) {
+					return this.archive.open(input, true);
+				}
+				return this.archive.openUrl(input, false);
+			}
+
+			return this.archive.open(input, isBase64);
+		}
+
 		this.archive = new Archive();
-		return this.archive.open(input, encoding);
+		if (typeof input === "string") {
+			if (isBase64) {
+				return this.archive.open(input, true);
+			}
+			return this.archive.openUrl(input, false);
+		}
+		return this.archive.open(input, isBase64);
 	}
 
 	/**
@@ -1120,10 +1157,12 @@ class Book {
 			return excerpt;
 		};
 
-		const sensitivity = matchDiacritics && matchCase ? "variant"
-			: matchDiacritics && !matchCase ? "accent"
-			: !matchDiacritics && matchCase ? "case"
-			: "base";
+		let sensitivity = "base";
+		if (matchDiacritics) {
+			sensitivity = matchCase ? "variant" : "accent";
+		} else {
+			sensitivity = matchCase ? "case" : "base";
+		}
 		const granularity = matchWholeWords ? "word" : "grapheme";
 
 		let segmenter;
