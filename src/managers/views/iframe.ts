@@ -47,17 +47,19 @@ export function filterContainedRects(rects) {
 
 class EpubHighlight extends Highlight {
 	filteredRanges() {
-		return filterContainedRects(this.range.getClientRects());
+		return filterContainedRects((this as any).range.getClientRects());
 	}
 }
 
 class EpubUnderline extends Underline {
 	filteredRanges() {
-		return filterContainedRects(this.range.getClientRects());
+		return filterContainedRects((this as any).range.getClientRects());
 	}
 }
 
 class IframeView {
+	[key: string]: any;
+
 	constructor(section, options) {
 		this.settings = extend({
 			ignoreClass : "",
@@ -194,7 +196,7 @@ class IframeView {
 		return this.iframe;
 	}
 
-	render(request, show) {
+	render(request, show?) {
 
 		// view.onLayout = this.layout.format.bind(this.layout);
 		this.create();
@@ -282,7 +284,7 @@ class IframeView {
 	}
 
 	// Determine locks base on settings
-	size(_width, _height) {
+	size(_width?, _height?) {
 		var width = _width || this.settings.width;
 		var height = _height || this.settings.height;
 
@@ -339,7 +341,7 @@ class IframeView {
 	}
 
 	// Resize a single axis based on content dimensions
-	expand(force) {
+	expand(force?) {
 		var width = this.lockedWidth;
 		var height = this.lockedHeight;
 		var columns;
@@ -476,17 +478,18 @@ class IframeView {
 			if(!this.document) {
 				loading.reject(new Error("No Document Available"));
 				return loaded;
-			}
+				}
 
-			this.iframe.contentDocument.open();
-			// For Cordova windows platform
-			if(window.MSApp && MSApp.execUnsafeLocalFunction) {
-				var outerThis = this;
-				MSApp.execUnsafeLocalFunction(function () {
-					outerThis.iframe.contentDocument.write(contents);
-				});
-			} else {
-				this.iframe.contentDocument.write(contents);
+				this.iframe.contentDocument.open();
+				// For Cordova windows platform
+				const w = window as any;
+				if(w.MSApp && w.MSApp.execUnsafeLocalFunction) {
+					var outerThis = this;
+					w.MSApp.execUnsafeLocalFunction(function () {
+						outerThis.iframe.contentDocument.write(contents);
+					});
+				} else {
+					this.iframe.contentDocument.write(contents);
 			}
 			this.iframe.contentDocument.close();
 
@@ -728,7 +731,7 @@ class IframeView {
 		//TODO: Add content listeners for expanding
 	}
 
-	removeListeners(layoutFunc) {
+	removeListeners(layoutFunc?) {
 		//TODO: remove content listeners for expanding
 	}
 
@@ -746,11 +749,11 @@ class IframeView {
 					this.displayed = true;
 					displayed.resolve(this);
 
-				}.bind(this), function (err) {
-					displayed.reject(err, this);
-				});
+					}.bind(this), function (err) {
+						displayed.reject(err);
+					});
 
-		} else {
+			} else {
 			displayed.resolve(this);
 		}
 
