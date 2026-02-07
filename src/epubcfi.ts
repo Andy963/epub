@@ -5,7 +5,9 @@ const TEXT_NODE = 3;
 const COMMENT_NODE = 8;
 const DOCUMENT_NODE = 9;
 
-function isIgnored(node, ignore) {
+type IgnoreClass = string | ((node: any) => boolean);
+
+function isIgnored(node: any, ignore: IgnoreClass | undefined) {
 	if (!node || !ignore) {
 		return false;
 	}
@@ -25,7 +27,7 @@ function isIgnored(node, ignore) {
 	return false;
 }
 
-function shouldUseIgnore(doc, ignore) {
+function shouldUseIgnore(doc: any, ignore: IgnoreClass | undefined) {
 	if (!ignore) {
 		return false;
 	}
@@ -63,7 +65,15 @@ function shouldUseIgnore(doc, ignore) {
 	@param {string | function} [ignoreClass] selector class name or predicate to ignore when parsing DOM
 */
 class EpubCFI {
-	constructor(cfiFrom, base, ignoreClass){
+	str: string;
+	base: any;
+	spinePos: number;
+	range: boolean;
+	path: any;
+	start: any;
+	end: any;
+
+	constructor(cfiFrom?: any, base?: any, ignoreClass?: IgnoreClass){
 		var type;
 
 		this.str = "";
@@ -76,11 +86,6 @@ class EpubCFI {
 		this.path = {};
 		this.start = null;
 		this.end = null;
-
-		// Allow instantiation without the "new" keyword
-		if (!(this instanceof EpubCFI)) {
-			return new EpubCFI(cfiFrom, base, ignoreClass);
-		}
 
 		if(typeof base === "string") {
 			this.base = this.parseComponent(base);
@@ -112,7 +117,7 @@ class EpubCFI {
 	 * Check the type of constructor input
 	 * @private
 	 */
-	checkType(cfi) {
+	checkType(cfi: any): string | false {
 
 		if (this.isCfiString(cfi)) {
 			return "string";
@@ -133,8 +138,8 @@ class EpubCFI {
 	 * @param {string} cfiStr
 	 * @returns {object} cfi
 	 */
-	parse(cfiStr) {
-		var cfi = {
+	parse(cfiStr: any): any {
+		var cfi: any = {
 			spinePos: -1,
 			range: false,
 			base: {},
@@ -545,8 +550,8 @@ class EpubCFI {
 	 * @param {string} [ignoreClass]
 	 * @returns {object} cfi
 	 */
-	fromRange(range, base, ignoreClass) {
-		var cfi = {
+	fromRange(range: any, base?: any, ignoreClass?: IgnoreClass): any {
+		var cfi: any = {
 			range: false,
 			base: {},
 			path: {},
@@ -639,8 +644,8 @@ class EpubCFI {
 	 * @param {string} [ignoreClass]
 	 * @returns {object} cfi
 	 */
-	fromNode(anchor, base, ignoreClass) {
-		var cfi = {
+	fromNode(anchor: any, base?: any, ignoreClass?: IgnoreClass): any {
+		var cfi: any = {
 			range: false,
 			base: {},
 			path: {},
@@ -861,7 +866,7 @@ class EpubCFI {
 
 	}
 
-	textNodes(container, ignoreClass) {
+	textNodes(container: any, ignoreClass?: IgnoreClass): any[] {
 		return Array.prototype.slice.call(container.childNodes).
 			filter(function (node) {
 				if (node.nodeType === TEXT_NODE) {
@@ -870,10 +875,10 @@ class EpubCFI {
 					return true;
 				}
 				return false;
-			});
+				});
 	}
 
-	walkToNode(steps, _doc, ignoreClass) {
+	walkToNode(steps: any[], _doc?: any, ignoreClass?: IgnoreClass) {
 		var doc = _doc || document;
 		var container = doc.documentElement;
 		var children;

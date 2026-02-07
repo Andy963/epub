@@ -138,8 +138,7 @@ export function defaults(obj) {
  * @returns {object}
  * @memberof Core
  */
-export function extend(target) {
-	var sources = [].slice.call(arguments, 1);
+export function extend(target: any, ...sources: any[]) {
 	sources.forEach(function (source) {
 		if(!source) return;
 		Object.getOwnPropertyNames(source).forEach(function(propName) {
