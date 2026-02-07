@@ -115,7 +115,7 @@ class PdfView extends IframeView {
 				throw new Error("PdfBook.renderPageData is required");
 			}
 
-			const options = { renderScale, textLayer: false, annotationLayer: false };
+			const options: any = { renderScale, textLayer: false, annotationLayer: false };
 			if (controller) {
 				options.signal = controller.signal;
 			}
