@@ -1,7 +1,13 @@
 import { qs } from "./core";
 import Url from "./url";
 
-export function replaceBase(doc, section){
+interface SectionLike {
+	url: string;
+	canonical?: string;
+	idref?: string;
+}
+
+export function replaceBase(doc: Document | null | undefined, section: SectionLike): void {
 	var base;
 	var head;
 	var url = section.url;
@@ -20,14 +26,14 @@ export function replaceBase(doc, section){
 	}
 
 	// Fix for Safari crashing if the url doesn't have an origin
-	if (!absolute && window && window.location) {
+	if (!absolute && typeof window !== "undefined" && window.location) {
 		url = window.location.origin + url;
 	}
 
 	base.setAttribute("href", url);
 }
 
-export function replaceCanonical(doc, section){
+export function replaceCanonical(doc: Document | null | undefined, section: SectionLike): void {
 	var head;
 	var link;
 	var url = section.canonical;
@@ -49,7 +55,7 @@ export function replaceCanonical(doc, section){
 	}
 }
 
-export function replaceMeta(doc, section){
+export function replaceMeta(doc: Document | null | undefined, section: SectionLike): void {
 	var head;
 	var meta;
 	var id = section.idref;
@@ -71,18 +77,24 @@ export function replaceMeta(doc, section){
 }
 
 // TODO: move me to Contents
-export function replaceLinks(contents, fn) {
+export function replaceLinks(
+	contents: Element,
+	fn: (href: string, link: HTMLAnchorElement, event?: MouseEvent) => void
+): void {
 
-	var links = contents.querySelectorAll("a[href]");
+	var links = contents.querySelectorAll<HTMLAnchorElement>("a[href]");
 
 	if (!links.length) {
 		return;
 	}
 
 	var base = qs(contents.ownerDocument, "base");
-	var location = base ? base.getAttribute("href") : undefined;
+	var location = base ? base.getAttribute("href") || undefined : undefined;
 	var replaceLink = function(link){
 		var href = link.getAttribute("href");
+		if (!href) {
+			return;
+		}
 
 		if(href.indexOf("mailto:") === 0){
 			return;
@@ -101,7 +113,7 @@ export function replaceLinks(contents, fn) {
 			});
 
 		}else{
-			var linkUrl;
+			var linkUrl: Url | undefined;
 			try {
 				linkUrl = new Url(href, location);	
 			} catch(error) {
@@ -113,7 +125,7 @@ export function replaceLinks(contents, fn) {
 					event.preventDefault();
 				}
 
-				let resolved;
+				let resolved: string;
 				if(linkUrl && linkUrl.hash) {
 					resolved = linkUrl.Path.path + linkUrl.hash;
 				} else if(linkUrl){
@@ -134,7 +146,7 @@ export function replaceLinks(contents, fn) {
 
 }
 
-export function substitute(content, urls, replacements) {
+export function substitute(content: string, urls: string[], replacements: string[]): string {
 	urls.forEach(function(url, i){
 		if (url && replacements[i]) {
 			// Account for special characters in the file name.
