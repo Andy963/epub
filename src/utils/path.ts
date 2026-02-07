@@ -1,5 +1,13 @@
 import path from "path-webpack";
 
+export interface ParsedPath {
+	root: string;
+	dir: string;
+	base: string;
+	ext: string;
+	name: string;
+}
+
 /**
  * Creates a Path object for parsing and manipulation of a path strings
  *
@@ -8,16 +16,18 @@ import path from "path-webpack";
  * @class
  */
 class Path {
-	constructor(pathString) {
-		var protocol;
-		var parsed;
+	path: string;
+	directory: string;
+	filename: string;
+	extension: string;
 
-		protocol = pathString.indexOf("://");
+	constructor(pathString: string) {
+		const protocol = pathString.indexOf("://");
 		if (protocol > -1) {
 			pathString = new URL(pathString).pathname;
 		}
 
-		parsed = this.parse(pathString);
+		const parsed = this.parse(pathString);
 
 		this.path = pathString;
 
@@ -37,7 +47,7 @@ class Path {
 	 * @param	{string} what
 	 * @returns {object}
 	 */
-	parse (what) {
+	parse(what: string): ParsedPath {
 		return path.parse(what);
 	}
 
@@ -45,7 +55,7 @@ class Path {
 	 * @param	{string} what
 	 * @returns {boolean}
 	 */
-	isAbsolute (what) {
+	isAbsolute(what?: string): boolean {
 		return path.isAbsolute(what || this.path);
 	}
 
@@ -54,7 +64,7 @@ class Path {
 	 * @param	{string} what
 	 * @returns {boolean}
 	 */
-	isDirectory (what) {
+	isDirectory(what: string): boolean {
 		return (what.charAt(what.length-1) === "/");
 	}
 
@@ -65,7 +75,7 @@ class Path {
 	 * @param	{string} what
 	 * @returns {string} resolved
 	 */
-	resolve (what) {
+	resolve(what: string): string {
 		return path.resolve(this.directory, what);
 	}
 
@@ -76,8 +86,8 @@ class Path {
 	 * @param	{string} what
 	 * @returns {string} relative
 	 */
-	relative (what) {
-		var isAbsolute = what && (what.indexOf("://") > -1);
+	relative(what: string): string {
+		const isAbsolute = what && (what.indexOf("://") > -1);
 
 		if (isAbsolute) {
 			return what;
@@ -86,15 +96,18 @@ class Path {
 		return path.relative(this.directory, what);
 	}
 
-	splitPath(filename) {
-		return this.splitPathRe.exec(filename).slice(1);
+	splitPath(filename: string): [string, string, string] {
+		const parsed = this.parse(filename);
+		const dir = parsed.dir ? parsed.dir + "/" : "";
+		const ext = parsed.ext.startsWith(".") ? parsed.ext.slice(1) : parsed.ext;
+		return [dir, parsed.base, ext];
 	}
 
 	/**
 	 * Return the path string
 	 * @returns {string} path
 	 */
-	toString () {
+	toString(): string {
 		return this.path;
 	}
 }

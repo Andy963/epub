@@ -1,7 +1,27 @@
 declare module "path-webpack" {
-  export function resolve(...paths: string[]): string;
-  export function join(...paths: string[]): string;
-  export function dirname(p: string): string;
-  export function basename(p: string, ext?: string): string;
-  export function extname(p: string): string;
+  export interface ParsedPath {
+    root: string;
+    dir: string;
+    base: string;
+    ext: string;
+    name: string;
+  }
+
+  export interface PathAPI {
+    resolve(...paths: string[]): string;
+    join(...paths: string[]): string;
+    normalize(path: string): string;
+    isAbsolute(path: string): boolean;
+    relative(from: string, to: string): string;
+    dirname(p: string): string;
+    basename(p: string, ext?: string): string;
+    extname(p: string): string;
+    format(pathObject: ParsedPath): string;
+    parse(path: string): ParsedPath;
+    sep: string;
+    delimiter: string;
+  }
+
+  const path: PathAPI;
+  export default path;
 }
