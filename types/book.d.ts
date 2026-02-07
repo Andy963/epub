@@ -46,7 +46,7 @@ export interface BookOptions {
 }
 
 export default class Book {
-    constructor(url: string, options?: BookOptions);
+    constructor(url: string | ArrayBuffer | Blob, options?: BookOptions);
     constructor(options?: BookOptions);
 
     settings: BookOptions;
@@ -85,7 +85,9 @@ export default class Book {
 
     destroy(): void;
 
-    determineType(input: string): string;
+    determineType(input: string | ArrayBuffer | Blob): string;
+
+    open(input: string | ArrayBuffer | Blob, what?: string): Promise<Book>;
 
     getRange(cfiRange: string): Promise<Range>;
 

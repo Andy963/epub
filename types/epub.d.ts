@@ -3,7 +3,7 @@ import PdfBook, { PdfBookOptions } from "./pdfbook";
 
 export default Epub;
 
-declare function Epub(urlOrData: string | ArrayBuffer, options?: BookOptions) : Book;
+declare function Epub(urlOrData: string | ArrayBuffer | Blob, options?: BookOptions) : Book;
 declare function Epub(options?: BookOptions) : Book;
 
 declare namespace Epub {
