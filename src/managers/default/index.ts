@@ -9,6 +9,8 @@ import Snap from "../helpers/snap";
 import { EVENTS } from "../../utils/constants";
 
 class DefaultViewManager {
+	[key: string]: any;
+
 	constructor(options) {
 
 		this.name = "default";
@@ -244,7 +246,7 @@ class DefaultViewManager {
 		this.resize();
 	}
 
-	resize(width, height, epubcfi){
+	resize(width?, height?, epubcfi?){
 		let stageSize = this.stage.size(width, height);
 
 		// For Safari, wait for orientation to catch up
@@ -304,7 +306,7 @@ class DefaultViewManager {
 		}
 	}
 
-	display(section, target){
+	display(section, target?){
 
 		var displaying = new defer();
 		var displayed = displaying.promise;
@@ -1087,7 +1089,7 @@ class DefaultViewManager {
 		this.writingMode = mode;
 	}
 
-	updateAxis(axis, forceUpdate){
+	updateAxis(axis, forceUpdate?){
 
 		if (!forceUpdate && axis === this.settings.axis) {
 			return;
