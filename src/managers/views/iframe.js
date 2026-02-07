@@ -350,10 +350,15 @@ class IframeView {
 
 		this._expanding = true;
 
-		if(this.layout.name === "pre-paginated") {
-			width = this.layout.columnWidth;
-			height = this.layout.height;
-		}
+			if(this.layout.name === "pre-paginated") {
+				width = this.layout.columnWidth;
+				height = this.layout.height;
+				if (this.layout.divisor > 1 &&
+					this.section &&
+					(this.section.index === 0 || (this.section.properties && this.section.properties.includes("page-spread-center")))) {
+					width = this.layout.spreadWidth;
+				}
+			}
 		// Expand Horizontally
 		else if(this.settings.axis === "horizontal") {
 			// Get the width of the text

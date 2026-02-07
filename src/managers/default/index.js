@@ -267,15 +267,17 @@ class DefaultViewManager {
 		return new this.View(section, extend(this.viewSettings, { forceRight }) );
 	}
 
-	handleNextPrePaginated(forceRight, section, action) {
-		let next;
+		handleNextPrePaginated(forceRight, section, action) {
+			let next;
 
-		if (this.layout.name === "pre-paginated" && this.layout.divisor > 1) {
-			if (forceRight || section.index === 0) {
-				// First page (cover) should stand alone for pre-paginated books
-				return;
-			}
-			next = section.next();
+			if (this.layout.name === "pre-paginated" && this.layout.divisor > 1) {
+				if (forceRight ||
+					section.index === 0 ||
+					(section && section.properties && section.properties.includes("page-spread-center"))) {
+					// First page (cover) should stand alone for pre-paginated books
+					return;
+				}
+				next = section.next();
 			if (next && !next.properties.includes("page-spread-left")) {
 				return action.call(this, next);
 			}
