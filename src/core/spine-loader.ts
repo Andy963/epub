@@ -1,6 +1,58 @@
+export interface SpineLoaderPerformance {
+	start(name: string, data?: Record<string, unknown>): unknown;
+	end(span: unknown, data?: Record<string, unknown>): void;
+	count(name: string, value?: number): void;
+	mark(name: string, data?: Record<string, unknown>): void;
+}
+
+export interface SpineLoaderLoadOptions {
+	signal?: AbortSignal;
+	[key: string]: unknown;
+}
+
+export type SpineLoaderResourceRequest = (
+	url: string,
+	type?: string | null,
+	withCredentials?: unknown,
+	headers?: unknown,
+	options?: SpineLoaderLoadOptions,
+) => Promise<unknown>;
+
+export type SpineLoaderSectionRequest = (
+	url: string,
+	type?: string | null,
+	withCredentials?: unknown,
+	headers?: unknown,
+) => Promise<unknown>;
+
+export interface SpineLoaderSection {
+	index: number | string;
+	href?: string;
+	contents?: unknown;
+	load: (request: SpineLoaderSectionRequest) => Promise<unknown>;
+	unload?: () => void;
+	next?: () => SpineLoaderSection | undefined;
+	prev?: () => SpineLoaderSection | undefined;
+}
+
+export interface SpineLoaderOptions {
+	loadResource: SpineLoaderResourceRequest;
+	performance?: SpineLoaderPerformance;
+	maxLoadedSections?: number | boolean;
+}
+
 class SpineLoader {
-	constructor(options) {
-		options = options || {};
+	private loadResource: SpineLoaderResourceRequest;
+	private performance?: SpineLoaderPerformance;
+	private prefetchVersion: number;
+	private prefetchController: AbortController | undefined;
+	private maxLoadedSections: number;
+	private pinnedSections: Map<number, number>;
+	private loadedSections: Map<number, SpineLoaderSection>;
+	private loadedOrder: number[];
+
+	constructor(options: SpineLoaderOptions) {
+		options = options || ({} as SpineLoaderOptions);
 		this.loadResource = options.loadResource;
 		this.performance = options.performance;
 		this.prefetchVersion = 0;
@@ -11,7 +63,7 @@ class SpineLoader {
 		this.loadedOrder = [];
 	}
 
-	load(section, options) {
+	load(section: SpineLoaderSection, options?: SpineLoaderLoadOptions): Promise<unknown> {
 		if (!section) {
 			return Promise.reject(new Error("Section is required"));
 		}
@@ -22,7 +74,11 @@ class SpineLoader {
 			href: section.href
 		});
 
-		const request = options ? (url, type, withCredentials, headers) => this.loadResource(url, type, withCredentials, headers, options) : this.loadResource;
+		const request: SpineLoaderSectionRequest = options
+			? (url, type, withCredentials, headers) =>
+					this.loadResource(url, type, withCredentials, headers, options)
+			: (url, type, withCredentials, headers) =>
+					this.loadResource(url, type, withCredentials, headers, undefined);
 
 		return section.load(request).then((contents) => {
 			this.trackLoadedSection(section);
@@ -44,7 +100,7 @@ class SpineLoader {
 		});
 	}
 
-	pin(section) {
+	pin(section: SpineLoaderSection): void {
 		const index = this.getSectionIndex(section);
 		if (typeof index === "undefined") {
 			return;
@@ -55,7 +111,7 @@ class SpineLoader {
 		this.trackLoadedSection(section);
 	}
 
-	unpin(section) {
+	unpin(section: SpineLoaderSection): void {
 		const index = this.getSectionIndex(section);
 		if (typeof index === "undefined") {
 			return;
@@ -75,7 +131,7 @@ class SpineLoader {
 		this.evictLoadedSections();
 	}
 
-	isPinned(section) {
+	isPinned(section: SpineLoaderSection): boolean {
 		const index = this.getSectionIndex(section);
 		if (typeof index === "undefined") {
 			return false;
@@ -84,7 +140,7 @@ class SpineLoader {
 		return this.pinnedSections.has(index);
 	}
 
-	cancelPrefetch() {
+	cancelPrefetch(): number {
 		this.prefetchVersion += 1;
 		if (this.prefetchController) {
 			try {
@@ -97,7 +153,10 @@ class SpineLoader {
 		return this.prefetchVersion;
 	}
 
-	prefetch(section, distance) {
+	prefetch(
+		section: SpineLoaderSection | undefined | null,
+		distance?: number,
+	): Promise<Array<unknown | undefined>> {
 		if (!section) {
 			return Promise.resolve([]);
 		}
@@ -114,7 +173,10 @@ class SpineLoader {
 			candidates: candidates.length
 		});
 
-		const loadSequentially = (index, results) => {
+		const loadSequentially = (
+			index: number,
+			results: Array<unknown | undefined>,
+		): Promise<Array<unknown | undefined>> => {
 			if (index >= candidates.length) {
 				return Promise.resolve(results);
 			}
@@ -124,17 +186,19 @@ class SpineLoader {
 				return loadSequentially(index + 1, results);
 			}
 
-			return this.load(candidates[index], controller ? { signal: controller.signal } : undefined).then((contents) => {
-				if (prefetchVersion === this.prefetchVersion) {
-					results.push(contents);
-				} else {
+			return this.load(candidates[index], controller ? { signal: controller.signal } : undefined)
+				.then((contents) => {
+					if (prefetchVersion === this.prefetchVersion) {
+						results.push(contents);
+					} else {
+						results.push(undefined);
+					}
+					return loadSequentially(index + 1, results);
+				})
+				.catch(() => {
 					results.push(undefined);
-				}
-				return loadSequentially(index + 1, results);
-			}).catch(() => {
-				results.push(undefined);
-				return loadSequentially(index + 1, results);
-			});
+					return loadSequentially(index + 1, results);
+				});
 		};
 
 		return loadSequentially(0, []).then((results) => {
@@ -163,10 +227,10 @@ class SpineLoader {
 		});
 	}
 
-	collectCandidates(section, distance) {
-		const candidates = [];
-		let next = section;
-		let prev = section;
+	private collectCandidates(section: SpineLoaderSection, distance: number): SpineLoaderSection[] {
+		const candidates: SpineLoaderSection[] = [];
+		let next: SpineLoaderSection | undefined = section;
+		let prev: SpineLoaderSection | undefined = section;
 
 		for (let i = 0; i < distance; i += 1) {
 			next = next && typeof next.next === "function" ? next.next() : undefined;
@@ -183,7 +247,7 @@ class SpineLoader {
 		return candidates;
 	}
 
-	normalizeMaxLoadedSections(maxLoadedSections) {
+	private normalizeMaxLoadedSections(maxLoadedSections: SpineLoaderOptions["maxLoadedSections"]): number {
 		if (maxLoadedSections === false || maxLoadedSections === 0) {
 			return Infinity;
 		}
@@ -195,7 +259,7 @@ class SpineLoader {
 		return Infinity;
 	}
 
-	getSectionIndex(section) {
+	private getSectionIndex(section: SpineLoaderSection): number | undefined {
 		if (!section) {
 			return;
 		}
@@ -203,12 +267,15 @@ class SpineLoader {
 		if (typeof index === "number") {
 			return index;
 		}
-		if (typeof index === "string" && index !== "" && isNaN(index) === false) {
-			return parseInt(index, 10);
+		if (typeof index === "string" && index !== "") {
+			const numericIndex = Number(index);
+			if (isNaN(numericIndex) === false) {
+				return parseInt(index, 10);
+			}
 		}
 	}
 
-	trackLoadedSection(section) {
+	private trackLoadedSection(section: SpineLoaderSection): void {
 		const index = this.getSectionIndex(section);
 		if (typeof index === "undefined") {
 			return;
@@ -223,7 +290,7 @@ class SpineLoader {
 		this.evictLoadedSections();
 	}
 
-	evictLoadedSections() {
+	private evictLoadedSections(): void {
 		if (!isFinite(this.maxLoadedSections)) {
 			return;
 		}
@@ -237,7 +304,7 @@ class SpineLoader {
 		}
 	}
 
-	findEvictableIndex() {
+	private findEvictableIndex(): number | undefined {
 		for (let i = 0; i < this.loadedOrder.length; i += 1) {
 			const index = this.loadedOrder[i];
 			if (!this.pinnedSections.has(index)) {
@@ -246,7 +313,7 @@ class SpineLoader {
 		}
 	}
 
-	evictByIndex(index) {
+	private evictByIndex(index: number): void {
 		const orderIndex = this.loadedOrder.indexOf(index);
 		if (orderIndex !== -1) {
 			this.loadedOrder.splice(orderIndex, 1);
