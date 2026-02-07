@@ -17,7 +17,7 @@ function request(
 	const supportsURL = (typeof window !== "undefined") && typeof window.URL !== "undefined"; // TODO: fallback for url if window isn't defined
 	const BLOB_RESPONSE = supportsURL ? "blob" : "arraybuffer";
 
-	const deferred = new (defer as any)();
+	const deferred = new defer();
 
 	const xhr = new XMLHttpRequest();
 	const abortSignal = options && options.signal;

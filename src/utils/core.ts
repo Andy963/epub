@@ -9,12 +9,18 @@ import { DOMParser as XMLDOMParser } from "@xmldom/xmldom";
  * @returns {function} requestAnimationFrame
  * @memberof Core
  */
-export const requestAnimationFrame = (typeof window != "undefined") ? (window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame) : false;
+const _window = (typeof window !== "undefined") ? (window as any) : undefined;
+export const requestAnimationFrame =
+	_window ? (_window.requestAnimationFrame ||
+		_window.mozRequestAnimationFrame ||
+		_window.webkitRequestAnimationFrame ||
+		_window.msRequestAnimationFrame) : false;
 const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
 const COMMENT_NODE = 8;
 const DOCUMENT_NODE = 9;
-const _URL = typeof URL != "undefined" ? URL : (typeof window != "undefined" ? (window.URL || window.webkitURL || window.mozURL) : undefined);
+const _URL = typeof URL !== "undefined" ? URL :
+	(_window ? (_window.URL || _window.webkitURL || _window.mozURL) : undefined);
 
 /**
  * Generates a UUID
@@ -169,7 +175,7 @@ export function insert(item, array, compareFunction) {
  * @returns {number} location (in array)
  * @memberof Core
  */
-export function locationOf(item, array, compareFunction, _start, _end) {
+export function locationOf(item, array, compareFunction, _start?, _end?) {
 	var start = _start || 0;
 	var end = _end || array.length;
 	var pivot = parseInt(start + (end - start) / 2);
@@ -210,7 +216,7 @@ export function locationOf(item, array, compareFunction, _start, _end) {
  * @returns {number} index (in array) or -1
  * @memberof Core
  */
-export function indexOfSorted(item, array, compareFunction, _start, _end) {
+export function indexOfSorted(item, array, compareFunction, _start?, _end?) {
 	var start = _start || 0;
 	var end = _end || array.length;
 	var pivot = parseInt(start + (end - start) / 2);
@@ -605,7 +611,7 @@ export function treeWalker(root, func, filter) {
  * @param {node} node
  * @param {callback} return false for continue,true for break inside callback
  */
-export function walk(node,callback){
+export function walk(node,callback, ..._rest){
 	if(callback(node)){
 		return true;
 	}
@@ -643,7 +649,18 @@ export function blob2base64(blob) {
  * From: https://developer.mozilla.org/en-US/docs/Mozilla/JavaScript_code_modules/Promise.jsm/Deferred#backwards_forwards_compatible
  * @memberof Core
  */
-export function defer() {
+export interface Deferred<T = any> {
+	resolve: (value: T | PromiseLike<T>) => void;
+	reject: (reason?: any) => void;
+	id: string;
+	promise: Promise<T>;
+}
+
+export type DeferConstructor = {
+	new <T = any>(): Deferred<T>;
+};
+
+export const defer: DeferConstructor = function Defer(this: Deferred<any>) {
 	/* A method to resolve the associated Promise with the value passed.
 	 * If the promise is already settled it does nothing.
 	 *
@@ -651,7 +668,7 @@ export function defer() {
 	 * If the value is a Promise then the associated promise assumes the state
 	 * of Promise passed as value.
 	 */
-	this.resolve = null;
+	this.resolve = null as any;
 
 	/* A method to reject the associated Promise with the value passed.
 	 * If the promise is already settled it does nothing.
@@ -660,7 +677,7 @@ export function defer() {
 	 * Generally its an Error object. If however a Promise is passed, then the Promise
 	 * itself will be the reason for rejection no matter the state of the Promise.
 	 */
-	this.reject = null;
+	this.reject = null as any;
 
 	this.id = uuid();
 
@@ -672,7 +689,7 @@ export function defer() {
 		this.reject = reject;
 	});
 	Object.freeze(this);
-}
+} as any;
 
 /**
  * querySelector with filter by epub type
@@ -784,6 +801,13 @@ export function getParentByTagName(node, tagname) {
  * @memberof Core
  */
 export class RangeObject {
+	collapsed: boolean;
+	commonAncestorContainer: any;
+	endContainer: any;
+	endOffset: any;
+	startContainer: any;
+	startOffset: any;
+
 	constructor() {
 		this.collapsed = false;
 		this.commonAncestorContainer = undefined;
@@ -800,7 +824,7 @@ export class RangeObject {
 		if (!this.endContainer) {
 			this.collapse(true);
 		} else {
-			this.commonAncestorContainer = this._commonAncestorContainer();
+				this.commonAncestorContainer = this._commonAncestorContainer();
 		}
 
 		this._checkCollapsed();
@@ -814,7 +838,7 @@ export class RangeObject {
 			this.collapse(false);
 		} else {
 			this.collapsed = false;
-			this.commonAncestorContainer = this._commonAncestorContainer();
+				this.commonAncestorContainer = this._commonAncestorContainer();
 		}
 
 		this._checkCollapsed();
@@ -829,7 +853,7 @@ export class RangeObject {
 		} else {
 			this.startContainer = this.endContainer;
 			this.startOffset = this.endOffset;
-			this.commonAncestorContainer = this.endOffset.parentNode;
+			this.commonAncestorContainer = this.endContainer.parentNode;
 		}
 	}
 
@@ -841,14 +865,15 @@ export class RangeObject {
 	}
 
 	selectNodeContents(referenceNode) {
-		let end = referenceNode.childNodes[referenceNode.childNodes - 1];
+		let end = referenceNode.childNodes[referenceNode.childNodes.length - 1];
+		let parent = referenceNode.parentNode;
 		let endIndex = (referenceNode.nodeType === 3) ?
 				referenceNode.textContent.length : parent.childNodes.length;
 		this.setStart(referenceNode, 0);
 		this.setEnd(referenceNode, endIndex);
 	}
 
-	_commonAncestorContainer(startContainer, endContainer) {
+	_commonAncestorContainer(startContainer?, endContainer?) {
 		var startParents = parents(startContainer || this.startContainer);
 		var endParents = parents(endContainer || this.endContainer);
 

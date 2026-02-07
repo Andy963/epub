@@ -38,7 +38,7 @@ class Queue {
 		}
 
 		if(typeof task === "function"){
-			const deferred: Deferred<any> = new (defer as any)();
+			const deferred: Deferred<any> = new defer();
 			const promise = deferred.promise;
 
 			queued = {
@@ -105,7 +105,7 @@ class Queue {
 			}
 
 		} else {
-			const idle: Deferred<void> = new (defer as any)();
+			const idle: Deferred<void> = new defer();
 			idle.resolve();
 			return idle.promise;
 		}
@@ -127,7 +127,7 @@ class Queue {
 
 		if(!this.running){
 			this.running = true;
-			this.defered = new (defer as any)();
+			this.defered = new defer();
 		}
 
 		this.tick.call(window, () => {
