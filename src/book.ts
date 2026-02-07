@@ -57,7 +57,9 @@ const INPUT_TYPE = {
  * @example new Book({ replacements: "blobUrl" })
  */
 class Book {
-	constructor(url, options) {
+	[key: string]: any;
+
+	constructor(url?, options?) {
 		// Allow passing just options to the Book
 		if (typeof(options) === "undefined" &&
 			  typeof(url) !== "string" &&
@@ -396,7 +398,7 @@ class Book {
 	 * @param  {string} [encoding]
 	 * @return {Promise}
 	 */
-	openEpub(data, encoding) {
+	openEpub(data, encoding?) {
 		return this.unarchive(data, encoding || this.settings.encoding)
 			.then(() => {
 				return this.openContainer(CONTAINER_PATH);
@@ -460,7 +462,7 @@ class Book {
 	 * @param  {object} [options]
 	 * @return {Promise}     returns a promise with the requested resource
 	 */
-	load(path, type, withCredentials, headers, options) {
+	load(path, type?, withCredentials?, headers?, options?) {
 		return this.resourceResolver.load(path, type, withCredentials, headers, options);
 	}
 
@@ -584,7 +586,7 @@ class Book {
 	 * @param  {boolean} [absolute] force resolving the full URL
 	 * @return {string}          the resolved path string
 	 */
-	resolve(path, absolute) {
+	resolve(path, absolute?) {
 		if (!path) {
 			return;
 		}
@@ -1513,7 +1515,7 @@ class Book {
 			return excerpt;
 		};
 
-		let sensitivity = "base";
+			let sensitivity = "base";
 		if (matchDiacritics) {
 			sensitivity = matchCase ? "variant" : "accent";
 		} else {
@@ -1521,21 +1523,22 @@ class Book {
 		}
 		const granularity = matchWholeWords ? "word" : "grapheme";
 
-		let segmenter;
-		let collator;
-		if (typeof Intl !== "undefined" && Intl.Segmenter && Intl.Collator) {
-			try {
-				segmenter = new Intl.Segmenter(locales, { usage: "search", granularity });
-				collator = new Intl.Collator(locales, { sensitivity });
-			} catch (e) {
+			let segmenter;
+			let collator;
+			const IntlAny = Intl as any;
+			if (typeof Intl !== "undefined" && IntlAny.Segmenter && IntlAny.Collator) {
 				try {
-					segmenter = new Intl.Segmenter("en", { usage: "search", granularity });
-					collator = new Intl.Collator("en", { sensitivity });
-				} catch (e2) {
-					segmenter = undefined;
-					collator = undefined;
+					segmenter = new IntlAny.Segmenter(locales, { usage: "search", granularity });
+					collator = new IntlAny.Collator(locales, { sensitivity });
+				} catch (e) {
+					try {
+						segmenter = new IntlAny.Segmenter("en", { usage: "search", granularity });
+						collator = new IntlAny.Collator("en", { sensitivity });
+					} catch (e2) {
+						segmenter = undefined;
+						collator = undefined;
+					}
 				}
-			}
 		}
 
 		let nonFormattingRegex;
@@ -1697,7 +1700,7 @@ class Book {
 
 				const markup = await this.load(section.url, "text", undefined, undefined, signal ? { signal } : undefined);
 				const text = stripMarkup(markup);
-				const matches = worker ? await searchInWorker(text) : findMatches(text);
+					const matches = (worker ? await searchInWorker(text) : findMatches(text)) as any[];
 
 				if (matches.length) {
 					let sectionMatches = matches;
