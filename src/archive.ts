@@ -4,11 +4,19 @@ import mime from "./utils/mime";
 import Path from "./utils/path";
 import JSZip from "jszip/dist/jszip";
 
+export interface ArchiveObfuscation {
+	deobfuscate: (path: string, bytes: Uint8Array) => Uint8Array;
+}
+
 /**
  * Handles Unzipping a requesting files from an Epub Archive
  * @class
  */
 class Archive {
+
+	private zip: any | undefined;
+	private urlCache: Record<string, string>;
+	private obfuscation: ArchiveObfuscation | undefined;
 
 	constructor() {
 		this.zip = undefined;
@@ -24,7 +32,7 @@ class Archive {
 	 * Requires JSZip if it isn't there
 	 * @private
 	 */
-	checkRequirements(){
+	private checkRequirements(): void {
 		try {
 			this.zip = new JSZip();
 		} catch (e) {
@@ -32,11 +40,11 @@ class Archive {
 		}
 	}
 
-	setObfuscation(obfuscation) {
+	setObfuscation(obfuscation: ArchiveObfuscation | undefined): void {
 		this.obfuscation = obfuscation;
 	}
 
-	uint8ArrayToBase64(uint8array) {
+	private uint8ArrayToBase64(uint8array: Uint8Array): string {
 		// Avoid stack overflow for large arrays
 		let binary = "";
 		const chunkSize = 0x8000;
@@ -53,7 +61,10 @@ class Archive {
 	 * @param  {boolean} [isBase64] tells JSZip if the input data is base64 encoded
 	 * @return {Promise} zipfile
 	 */
-	open(input, isBase64){
+	open(input: any, isBase64?: boolean): Promise<any> {
+		if (!this.zip) {
+			return Promise.reject(new Error("Archive is not initialized"));
+		}
 		return this.zip.loadAsync(input, {"base64": isBase64});
 	}
 
@@ -63,7 +74,7 @@ class Archive {
 	 * @param  {boolean} [isBase64] tells JSZip if the input data is base64 encoded
 	 * @return {Promise} zipfile
 	 */
-	openUrl(zipUrl, isBase64){
+	openUrl(zipUrl: string, isBase64?: boolean): Promise<any> {
 		return request(zipUrl, "binary")
 			.then(function(data){
 				return this.zip.loadAsync(data, {"base64": isBase64});
@@ -76,7 +87,7 @@ class Archive {
 	 * @param  {string} [type] specify the type of the returned result
 	 * @return {Promise<Blob | string | JSON | Document | XMLDocument>}
 	 */
-	request(url, type){
+	request(url: string, type?: string): Promise<any> {
 		var deferred = new defer();
 		var response;
 		var path = new Path(url);
@@ -113,7 +124,7 @@ class Archive {
 	 * @param  {string} [type]
 	 * @return {any} the parsed result
 	 */
-	handleResponse(response, type){
+	private handleResponse(response: any, type: string): any {
 		var r;
 
 		if(type == "json") {
@@ -121,15 +132,15 @@ class Archive {
 		}
 		else
 		if(isXml(type)) {
-			r = parse(response, "text/xml");
+			r = parse(response, "text/xml", false);
 		}
 		else
 		if(type == "xhtml") {
-			r = parse(response, "application/xhtml+xml");
+			r = parse(response, "application/xhtml+xml", false);
 		}
 		else
 		if(type == "html" || type == "htm") {
-			r = parse(response, "text/html");
+			r = parse(response, "text/html", false);
 		 } else {
 			 r = response;
 		 }
@@ -143,9 +154,10 @@ class Archive {
 	 * @param  {string} [mimeType]
 	 * @return {Blob}
 	 */
-	getBlob(url, mimeType){
-		var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
-		var entry = this.zip.file(decodededUrl);
+	private getBlob(url: string, mimeType?: string): Promise<Blob> | undefined {
+		const w = window as any;
+		var decodededUrl = w.decodeURIComponent(url.substr(1)); // Remove first slash
+		var entry = this.zip && this.zip.file(decodededUrl);
 
 		if(entry) {
 			mimeType = mimeType || mime.lookup(entry.name);
@@ -165,9 +177,10 @@ class Archive {
 	 * @param  {string} [encoding]
 	 * @return {string}
 	 */
-	getText(url, encoding){
-		var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
-		var entry = this.zip.file(decodededUrl);
+	private getText(url: string, encoding?: string): Promise<string> | undefined {
+		const w = window as any;
+		var decodededUrl = w.decodeURIComponent(url.substr(1)); // Remove first slash
+		var entry = this.zip && this.zip.file(decodededUrl);
 
 		if(entry) {
 			return entry.async("string").then(function(text) {
@@ -182,9 +195,10 @@ class Archive {
 	 * @param  {string} [mimeType]
 	 * @return {string} base64 encoded
 	 */
-	getBase64(url, mimeType){
-		var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
-		var entry = this.zip.file(decodededUrl);
+	private getBase64(url: string, mimeType?: string): Promise<string> | undefined {
+		const w = window as any;
+		var decodededUrl = w.decodeURIComponent(url.substr(1)); // Remove first slash
+		var entry = this.zip && this.zip.file(decodededUrl);
 
 		if(entry) {
 			mimeType = mimeType || mime.lookup(entry.name);
@@ -206,9 +220,10 @@ class Archive {
 	 * @param  {object} [options.base64] use base64 encoding or blob url
 	 * @return {Promise} url promise with Url string
 	 */
-	createUrl(url, options){
+	createUrl(url: string, options?: { base64?: boolean }): Promise<string> {
 		var deferred = new defer();
-		var _URL = window.URL || window.webkitURL || window.mozURL;
+		const w = window as any;
+		var _URL = window.URL || w.webkitURL || w.mozURL;
 		var tempUrl;
 		var response;
 		var useBase64 = options && options.base64;
@@ -262,14 +277,16 @@ class Archive {
 	 * Revoke Temp Url for a archive item
 	 * @param  {string} url url of the item in the archive
 	 */
-	revokeUrl(url){
-		var _URL = window.URL || window.webkitURL || window.mozURL;
+	revokeUrl(url: string): void {
+		const w = window as any;
+		var _URL = window.URL || w.webkitURL || w.mozURL;
 		var fromCache = this.urlCache[url];
 		if(fromCache) _URL.revokeObjectURL(fromCache);
 	}
 
-	destroy() {
-		var _URL = window.URL || window.webkitURL || window.mozURL;
+	destroy(): void {
+		const w = window as any;
+		var _URL = window.URL || w.webkitURL || w.mozURL;
 		for (let key in this.urlCache) {
 			const value = this.urlCache[key];
 			if (value && typeof value === "string" && value.indexOf("blob:") === 0) {
