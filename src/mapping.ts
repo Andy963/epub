@@ -10,7 +10,12 @@ import { nodeBounds } from "./utils/core";
  * @param {boolean} [dev] toggle developer highlighting
  */
 class Mapping {
-	constructor(layout, direction, axis, dev=false) {
+	layout: any;
+	horizontal: boolean;
+	direction: any;
+	_dev: boolean;
+
+	constructor(layout: any, direction?: any, axis?: any, dev=false) {
 		this.layout = layout;
 		this.horizontal = (axis === "horizontal") ? true : false;
 		this.direction = direction || "ltr";
@@ -88,10 +93,10 @@ class Mapping {
 				}
 			}
 		};
-		var safeFilter = filter.acceptNode;
+		var safeFilter: any = filter.acceptNode;
 		safeFilter.acceptNode = filter.acceptNode;
 
-		var treeWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, safeFilter, false);
+		var treeWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, safeFilter as any, false);
 		var node;
 		var result;
 		while ((node = treeWalker.nextNode())) {
@@ -111,7 +116,7 @@ class Mapping {
 		var gap = this.layout.gap;
 		var start, end;
 
-		for (var i = 0; i < count.pages; i++) {
+		for (var i = 0; i < count; i++) {
 			start = (columnWidth + gap) * i;
 			end = (columnWidth * (i+1)) + (gap * i);
 			columns.push({
@@ -410,7 +415,7 @@ class Mapping {
 	 * @param {string} [_splitter] what to split on
 	 * @return {Range[]}
 	 */
-	splitTextNodeIntoRanges(node, _splitter){
+	splitTextNodeIntoRanges(node, _splitter?){
 		var ranges = [];
 		var textContent = node.textContent || "";
 		var text = textContent.trim();

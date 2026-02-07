@@ -975,7 +975,7 @@ class EpubCFI {
 	 * @param {string} [ignoreClass]
 	 * @return {Range}
 	 */
-	toRange(_doc, ignoreClass) {
+	toRange(_doc?: any, ignoreClass?: IgnoreClass) {
 		var doc = _doc || document;
 		var range;
 		var start, end, startContainer, endContainer;
