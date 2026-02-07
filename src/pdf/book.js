@@ -30,6 +30,10 @@ class PdfBook {
 			password: undefined,
 			withCredentials: undefined,
 			httpHeaders: undefined,
+			cMapUrl: undefined,
+			cMapPacked: undefined,
+			standardFontDataUrl: undefined,
+			isEvalSupported: false,
 			textLayer: true,
 			annotationLayer: true,
 			prefetchDistance: 0,
@@ -166,14 +170,14 @@ class PdfBook {
 			pdfjs.GlobalWorkerOptions.workerSrc = this.settings.workerSrc;
 		}
 
-		let loadingTask;
+		const documentOptions = {
+			password: this.settings.password,
+			withCredentials: this.settings.withCredentials,
+			httpHeaders: this.settings.httpHeaders,
+		};
+
 		if (typeof input === "string") {
-			loadingTask = pdfjs.getDocument({
-				url: input,
-				password: this.settings.password,
-				withCredentials: this.settings.withCredentials,
-				httpHeaders: this.settings.httpHeaders,
-			});
+			documentOptions.url = input;
 		} else if (input instanceof Blob) {
 			const useRangeTransport =
 				pdfjs.PDFDataRangeTransport &&
@@ -199,31 +203,40 @@ class PdfBook {
 						});
 				};
 
-				loadingTask = pdfjs.getDocument({
-					range: transport,
-					password: this.settings.password,
-				});
+				documentOptions.range = transport;
 			} else {
 				const buffer = await input.arrayBuffer();
-				loadingTask = pdfjs.getDocument({
-					data: buffer,
-					password: this.settings.password,
-				});
+				documentOptions.data = buffer;
 			}
 		} else if (input instanceof ArrayBuffer) {
-			loadingTask = pdfjs.getDocument({
-				data: input,
-				password: this.settings.password,
-			});
+			documentOptions.data = input;
 		} else if (input && typeof input.buffer === "object") {
 			const data = input instanceof Uint8Array ? input : new Uint8Array(input);
-			loadingTask = pdfjs.getDocument({
-				data,
-				password: this.settings.password,
-			});
+			documentOptions.data = data;
 		} else {
 			throw new Error("Unsupported PDF input");
 		}
+
+		if (typeof this.settings.isEvalSupported === "boolean") {
+			documentOptions.isEvalSupported = this.settings.isEvalSupported;
+		}
+
+		if (this.settings.cMapUrl && typeof this.settings.cMapUrl === "string") {
+			documentOptions.cMapUrl = this.settings.cMapUrl;
+		}
+
+		if (typeof this.settings.cMapPacked === "boolean") {
+			documentOptions.cMapPacked = this.settings.cMapPacked;
+		}
+
+		if (
+			this.settings.standardFontDataUrl &&
+			typeof this.settings.standardFontDataUrl === "string"
+		) {
+			documentOptions.standardFontDataUrl = this.settings.standardFontDataUrl;
+		}
+
+		const loadingTask = pdfjs.getDocument(documentOptions);
 
 		this.pdf = await loadingTask.promise;
 		this.numPages = this.pdf.numPages;

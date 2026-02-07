@@ -44,10 +44,14 @@
 `PdfBookOptions` 常用项：
 
 - `workerSrc?: string`：PDF.js worker 脚本地址。
+- `cMapUrl?: string`：PDF.js CMap 资源路径（某些 PDF/字体渲染需要）。
+- `cMapPacked?: boolean`：是否使用 packed CMaps（配合 `cMapUrl`）。
+- `standardFontDataUrl?: string`：PDF.js 标准字体资源路径。
+- `isEvalSupported?: boolean`：是否允许 PDF.js 使用 `eval`（默认 `false`，更安全但可能略降性能）。
 - `textLayer?: boolean`：是否生成可选中文本层（默认 `true`）。
 - `annotationLayer?: boolean`：是否生成链接注释层（默认 `true`）。
 - `prefetchDistance?: number`：预取相邻页距离（默认 `0`）。
-- `renderScale?: number`：底层渲染基准 scale（默认 `1`）。在大屏/高倍缩放场景可提高以改善清晰度，但会增加 CPU/内存占用。
+- `renderScale?: number`：渲染质量倍率（默认 `1`）。会与 `fixedLayout.zoom` 的缩放因子叠加以保持清晰度；提高该值会增加 CPU/内存占用。
 
 ### `book.renderTo(element, renditionOptions?)`
 
