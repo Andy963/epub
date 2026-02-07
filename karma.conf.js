@@ -30,7 +30,7 @@ module.exports = function(config) {
     // list of files / patterns to load in the browser
     files: [
 
-      {pattern: 'src/*.js', watched: true, included: false, served: false},
+      {pattern: 'src/*.{js,ts}', watched: true, included: false, served: false},
 
       {pattern: 'node_modules/@zip.js/zip.js/dist/zip.min.js', watched: false, included: true, served: true},
 

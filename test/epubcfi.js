@@ -1,5 +1,5 @@
 import assert from 'assert';
-import EpubCFI from '../src/epubcfi.js';
+import EpubCFI from '../src/epubcfi';
 // var fs = require('fs');
 if (typeof DOMParser === "undefined") {
 	global.DOMParser = require('@xmldom/xmldom').DOMParser;

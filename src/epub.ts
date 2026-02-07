@@ -21,20 +21,22 @@ function ePub(url, options) {
 	return new Book(url, options);
 }
 
-ePub.VERSION = EPUBJS_VERSION;
+const ePubAny = ePub as any;
+
+ePubAny.VERSION = EPUBJS_VERSION;
 
 if (typeof(global) !== "undefined") {
-	global.EPUBJS_VERSION = EPUBJS_VERSION;
+	(global as any).EPUBJS_VERSION = EPUBJS_VERSION;
 }
 
-ePub.Book = Book;
-ePub.PdfBook = PdfBook;
-ePub.pdf = function(url, options) {
+ePubAny.Book = Book;
+ePubAny.PdfBook = PdfBook;
+ePubAny.pdf = function(url, options) {
 	return new PdfBook(url, options);
 };
-ePub.Rendition = Rendition;
-ePub.Contents = Contents;
-ePub.CFI = CFI;
-ePub.utils = utils;
+ePubAny.Rendition = Rendition;
+ePubAny.Contents = Contents;
+ePubAny.CFI = CFI;
+ePubAny.utils = utils;
 
 export default ePub;

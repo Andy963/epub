@@ -22,7 +22,7 @@ if (MINIMIZE) {
 module.exports = {
 	mode: process.env.NODE_ENV,
 	entry: {
-		"epub": "./src/epub.js",
+		"epub": "./src/epub.ts",
 	},
 	devtool: MINIMIZE ? false : 'source-map',
 	output: {
