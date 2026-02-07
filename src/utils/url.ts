@@ -8,16 +8,27 @@ import path from "path-webpack";
  * default to window.location.href
  */
 class Url {
-	constructor(urlString, baseString) {
-		var absolute = (urlString.indexOf("://") > -1);
-		var pathname = urlString;
-		var basePath;
+	Url: URL | undefined;
+	href: string;
+	protocol: string;
+	origin: string;
+	hash: string;
+	search: string;
+	base: string | false | undefined;
+	Path: Path;
+	directory: string;
+	filename: string;
+	extension: string;
+
+	constructor(urlString: string, baseString?: string | false) {
+		const absolute = (urlString.indexOf("://") > -1);
+		let pathname = urlString;
+		let basePath: Path | undefined;
 
 		this.Url = undefined;
 		this.href = urlString;
 		this.protocol = "";
 		this.origin = "";
-		this.hash = "";
 		this.hash = "";
 		this.search = "";
 		this.base = baseString;
@@ -67,7 +78,7 @@ class Url {
 	/**
 	 * @returns {Path}
 	 */
-	path () {
+	path(): Path {
 		return this.Path;
 	}
 
@@ -76,9 +87,9 @@ class Url {
 	 * @param {string} what
 	 * @returns {string} url
 	 */
-	resolve (what) {
-		var isAbsolute = (what.indexOf("://") > -1);
-		var fullpath;
+	resolve(what: string): string {
+		const isAbsolute = (what.indexOf("://") > -1);
+		let fullpath: string;
 
 		if (isAbsolute) {
 			return what;
@@ -93,14 +104,14 @@ class Url {
 	 * @param {string} what
 	 * @returns {string} path
 	 */
-	relative (what) {
+	relative(what: string): string {
 		return path.relative(what, this.directory);
 	}
 
 	/**
 	 * @returns {string}
 	 */
-	toString () {
+	toString(): string {
 		return this.href;
 	}
 }
