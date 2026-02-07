@@ -28,7 +28,8 @@ export interface RenditionOptions {
   defaultDirection?: string,
   allowScriptedContent?: boolean,
   allowPopups?: boolean,
-  prefetch?: boolean | number
+  prefetch?: boolean | number,
+  footnotes?: boolean | { detect?: boolean, extract?: boolean }
 }
 
 export interface DisplayedLocation {
@@ -96,6 +97,17 @@ export default class Rendition {
     getRange(cfi: string, ignoreClass?: string): Range;
 
     handleLinks(contents: Contents): void;
+
+    resolveFootnote(href: string, options?: { extract?: boolean }): Promise<{
+      href: string,
+      sectionIndex: number,
+      sectionHref: string,
+      type: string | null,
+      hidden: boolean,
+      target: any,
+      html: string,
+      text: string
+    }>;
 
     injectIdentifier(doc: Document, section: Section): void;
 

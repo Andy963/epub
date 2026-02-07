@@ -1,6 +1,5 @@
-import { qs, qsa } from "./core";
+import { qs } from "./core";
 import Url from "./url";
-import Path from "./path";
 
 export function replaceBase(doc, section){
 	var base;
@@ -103,18 +102,22 @@ export function replaceLinks(contents, fn) {
 				// NOOP
 			}
 
-			link.onclick = function(){
-
-				if(linkUrl && linkUrl.hash) {
-					fn(linkUrl.Path.path + linkUrl.hash);
-				} else if(linkUrl){
-					fn(linkUrl.Path.path);
-				} else {
-					fn(href);
+			link.addEventListener("click", function(event){
+				if (event) {
+					event.preventDefault();
 				}
 
-				return false;
-			};
+				let resolved;
+				if(linkUrl && linkUrl.hash) {
+					resolved = linkUrl.Path.path + linkUrl.hash;
+				} else if(linkUrl){
+					resolved = linkUrl.Path.path;
+				} else {
+					resolved = href;
+				}
+
+				fn(resolved, link, event);
+			});
 		}
 	}.bind(this);
 

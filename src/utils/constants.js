@@ -50,6 +50,7 @@ export const EVENTS = {
     RELOCATED : "relocated",
     MARK_CLICKED : "markClicked",
     SELECTED : "selected",
+    FOOTNOTE : "footnote",
     LAYOUT: "layout"
   },
   LAYOUT : {

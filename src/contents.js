@@ -1198,8 +1198,8 @@ class Contents {
 	 * @private
 	 */
 	linksHandler() {
-		replaceLinks(this.content, (href) => {
-			this.emit(EVENTS.CONTENTS.LINK_CLICKED, href);
+		replaceLinks(this.content, (href, link, event) => {
+			this.emit(EVENTS.CONTENTS.LINK_CLICKED, href, link, event);
 		});
 	}
 
