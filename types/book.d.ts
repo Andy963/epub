@@ -42,6 +42,7 @@ export interface BookOptions {
   store?: string,
   archiveMethod?: "jszip" | "zipjs",
   zipjs?: any,
+  deobfuscate?: boolean,
   metrics?: boolean | BookMetricsOptions,
   prefetchDistance?: number,
   maxLoadedSections?: number,

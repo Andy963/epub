@@ -193,10 +193,10 @@ class Resources {
 
 		return Promise.all(replacements)
 			.then( (replacementUrls) => {
-				this.replacementUrls = replacementUrls.filter((url) => {
-					return (typeof(url) === "string");
+				this.replacementUrls = replacementUrls.map((url) => {
+					return typeof url === "string" ? url : undefined;
 				});
-				return replacementUrls;
+				return this.replacementUrls;
 			});
 	}
 
@@ -317,13 +317,13 @@ class Resources {
 		if (indexInUrls === -1) {
 			return;
 		}
-		if (this.replacementUrls.length) {
-			return new Promise(function(resolve, reject) {
-				resolve(this.replacementUrls[indexInUrls]);
-			}.bind(this));
-		} else {
-			return this.createUrl(path);
+
+		const replacement = this.replacementUrls && this.replacementUrls[indexInUrls];
+		if (replacement) {
+			return Promise.resolve(replacement);
 		}
+
+		return this.createUrl(path);
 	}
 
 	/**

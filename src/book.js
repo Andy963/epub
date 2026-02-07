@@ -19,10 +19,12 @@ import PerformanceTracker from "./utils/performance";
 import ResourceResolver from "./core/resource-resolver";
 import SpineLoader from "./core/spine-loader";
 import ZipJsArchive from "./core/zipjs-archive";
+import FontObfuscation from "./core/obfuscation";
 import { EPUBJS_VERSION, EVENTS } from "./utils/constants";
 
 const CONTAINER_PATH = "META-INF/container.xml";
 const IBOOKS_DISPLAY_OPTIONS_PATH = "META-INF/com.apple.ibooks.display-options.xml";
+const ENCRYPTION_PATH = "META-INF/encryption.xml";
 
 const INPUT_TYPE = {
 	BINARY: "binary",
@@ -44,6 +46,7 @@ const INPUT_TYPE = {
  * @param {object} [options.requestHeaders=undefined] send the xhr request headers
  * @param {("jszip"|"zipjs")} [options.archiveMethod=undefined] choose archive backend for `.epub` inputs
  * @param {any} [options.zipjs=undefined] provide zip.js module when using `archiveMethod: "zipjs"`
+ * @param {boolean} [options.deobfuscate=true] decode obfuscated fonts referenced by `META-INF/encryption.xml`
  * @param {string} [options.encoding=binary] optional to pass 'binary' or base64' for archived Epubs
  * @param {string} [options.replacements=none] use base64, blobUrl, or none for replacing assets in archived Epubs
  * @param {method} [options.canonical] optional function to determine canonical urls for a path
@@ -76,6 +79,7 @@ class Book {
 			store: undefined,
 			archiveMethod: undefined,
 			zipjs: undefined,
+			deobfuscate: true,
 			metrics: false,
 			prefetchDistance: 1,
 			maxLoadedSections: 0,
@@ -196,12 +200,68 @@ class Book {
 		 * @private
 		 */
 		this.archive = undefined;
+		this.obfuscation = undefined;
 
 		this.resourceResolver = new ResourceResolver({
 			resolvePath: this.resolve.bind(this),
 			isArchived: () => this.archived,
 			requestArchive: (resolvedPath, type) => this.archive.request(resolvedPath, type),
-			requestRemote: (resolvedPath, type, credentials, headers, options) => this.request(resolvedPath, type, credentials, headers, options),
+			requestRemote: (resolvedPath, type, credentials, headers, options) => {
+				const loading = this.request(
+					resolvedPath,
+					type,
+					credentials,
+					headers,
+					options,
+				);
+
+				if (type !== "blob") {
+					return loading;
+				}
+
+				const obfuscation = this.obfuscation;
+				if (
+					!obfuscation ||
+					typeof obfuscation.isObfuscated !== "function" ||
+					typeof obfuscation.deobfuscate !== "function"
+				) {
+					return loading;
+				}
+
+				if (!obfuscation.isObfuscated(resolvedPath)) {
+					return loading;
+				}
+
+				return loading.then(async (blob) => {
+					const signal = options && options.signal;
+					if (signal && signal.aborted) {
+						throw {
+							name: "AbortError",
+							message: "Aborted",
+						};
+					}
+
+					if (!blob || typeof blob.arrayBuffer !== "function") {
+						return blob;
+					}
+
+					const buffer = await blob.arrayBuffer();
+					if (signal && signal.aborted) {
+						throw {
+							name: "AbortError",
+							message: "Aborted",
+						};
+					}
+
+					const bytes = new Uint8Array(buffer);
+					const next = obfuscation.deobfuscate(resolvedPath, bytes);
+					if (!next || next === bytes) {
+						return blob;
+					}
+
+					return new Blob([next], { type: blob.type });
+				});
+			},
 			requestCredentials: () => this.settings.requestCredentials,
 			requestHeaders: () => this.settings.requestHeaders,
 			performance: this.performance
@@ -621,6 +681,8 @@ class Book {
 	unpack(packaging) {
 		this.package = packaging; //TODO: deprecated this
 
+		const obfuscationPromise = this.loadFontObfuscation();
+
 		if (this.packaging.metadata.layout === "") {
 			// rendition:layout not set - check display options if book is pre-paginated
 			this.load(this.url.resolve(IBOOKS_DISPLAY_OPTIONS_PATH)).then((xml) => {
@@ -646,6 +708,10 @@ class Book {
 			performance: this.performance
 		});
 
+		const obfuscationReady = Promise.resolve(obfuscationPromise).then(() => {
+			return this.applyFontObfuscationReplacementsIfNeeded();
+		});
+
 		this.loadNavigation(this.packaging).then(() => {
 			// this.toc = this.navigation.toc;
 			this.loading.navigation.resolve(this.navigation);
@@ -665,20 +731,20 @@ class Book {
 		this.isOpen = true;
 
 		if(this.archived || this.settings.replacements && this.settings.replacements != "none") {
-			this.replacements().then(() => {
-				this.loaded.displayOptions.then(() => {
-					this.performance.mark("book.ready", {
-						archived: this.archived,
-						spineLength: this.spine && this.spine.length
-					});
-					this.opening.resolve(this);
+			Promise.resolve(obfuscationReady).then(() => this.replacements()).then(() => {
+				return this.loaded.displayOptions;
+			}).then(() => {
+				this.performance.mark("book.ready", {
+					archived: this.archived,
+					spineLength: this.spine && this.spine.length
 				});
+				this.opening.resolve(this);
 			}).catch((err) => {
 				console.error(err);
 			});
 		} else {
 			// Resolve book opened promise
-			this.loaded.displayOptions.then(() => {
+			Promise.resolve(obfuscationReady).then(() => this.loaded.displayOptions).then(() => {
 				this.performance.mark("book.ready", {
 					archived: this.archived,
 					spineLength: this.spine && this.spine.length
@@ -953,6 +1019,143 @@ class Book {
 		return this.resources.replacements().then(() => {
 			return this.resources.replaceCss();
 		});
+	}
+
+	async applyFontObfuscationReplacementsIfNeeded() {
+		if (
+			this.archived ||
+			this.settings.deobfuscate === false ||
+			!this.obfuscation ||
+			!this.resources ||
+			!this.spine ||
+			!this.spine.hooks ||
+			!this.spine.hooks.serialize
+		) {
+			return;
+		}
+
+		if (this.resources.settings && this.resources.settings.lazy) {
+			// Lazy replacement already loads assets through `load()` and thus can deobfuscate fonts.
+			return;
+		}
+
+		// If the user explicitly configured replacements, keep their original behavior.
+		if (typeof this.settings.replacements !== "undefined") {
+			return;
+		}
+
+		// Respect explicit disable
+		if (this.resources.settings && this.resources.settings.replacements === "none") {
+			return;
+		}
+
+		if (!this._obfuscationSubstituteHook) {
+			this._obfuscationSubstituteHook = (output, section) => {
+				section.output = this.resources.substitute(output, section.url);
+			};
+			this.spine.hooks.serialize.register(this._obfuscationSubstituteHook);
+		}
+
+		const obfuscation = this.obfuscation;
+		const resources = this.resources;
+		const resolver =
+			resources.settings && typeof resources.settings.resolver === "function"
+				? resources.settings.resolver
+				: (href) => href;
+
+		if (!Array.isArray(resources.replacementUrls) || resources.replacementUrls.length !== resources.urls.length) {
+			resources.replacementUrls = new Array(resources.urls.length);
+		}
+
+		const fontTasks = [];
+
+		for (let i = 0; i < resources.urls.length; i += 1) {
+			const href = resources.urls[i];
+			if (!href || resources.replacementUrls[i]) {
+				continue;
+			}
+
+			const resolved = resolver(href);
+			if (!resolved || !obfuscation.isObfuscated(resolved)) {
+				continue;
+			}
+
+			fontTasks.push(
+				resources
+					.createUrl(resolved)
+					.then((url) => {
+						if (url) {
+							resources.replacementUrls[i] = url;
+						}
+					})
+					.catch(() => {
+						return;
+					})
+			);
+		}
+
+		if (fontTasks.length) {
+			await Promise.all(fontTasks);
+		}
+
+		// Update CSS hrefs so that `@font-face url(...)` inside CSS points to deobfuscated font URLs.
+		try {
+			await resources.replaceCss();
+		} catch (e) {
+			// NOOP
+		}
+	}
+
+	async loadFontObfuscation() {
+		if (this.settings.deobfuscate === false) {
+			return;
+		}
+
+		if (!this.packaging || !this.url) {
+			return;
+		}
+
+		const uniqueIdentifier = this.packaging.uniqueIdentifier || "";
+		if (!uniqueIdentifier) {
+			return;
+		}
+
+		const resolveRoot = () => {
+			try {
+				return this.url.resolve(ENCRYPTION_PATH);
+			} catch (e) {
+				return "/" + ENCRYPTION_PATH;
+			}
+		};
+
+		let encryption;
+		try {
+			encryption = await this.load(resolveRoot(), "xml");
+		} catch (e) {
+			return;
+		}
+
+		const rootDirectory =
+			this.url && this.url.Path && typeof this.url.Path.directory === "string"
+				? this.url.Path.directory
+				: this.url && typeof this.url.directory === "string"
+					? this.url.directory
+					: "";
+
+		const obfuscation = FontObfuscation.fromEncryption(encryption, uniqueIdentifier, {
+			rootDirectory,
+		});
+		if (!obfuscation) {
+			return;
+		}
+
+		this.obfuscation = obfuscation;
+
+		if (this.archive && typeof this.archive.setObfuscation === "function") {
+			this.archive.setObfuscation(obfuscation);
+		} else if (this.archive) {
+			this.archive.obfuscation = obfuscation;
+		}
 	}
 
 	/**

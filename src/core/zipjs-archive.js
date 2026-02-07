@@ -10,8 +10,23 @@ class ZipJsArchive {
 		this.reader = undefined;
 		this.entries = undefined;
 		this.entryMap = new Map();
+		this.obfuscation = undefined;
 
 		this.urlCache = {};
+	}
+
+	setObfuscation(obfuscation) {
+		this.obfuscation = obfuscation;
+	}
+
+	uint8ArrayToBase64(uint8array) {
+		let binary = "";
+		const chunkSize = 0x8000;
+		for (let i = 0; i < uint8array.length; i += chunkSize) {
+			const chunk = uint8array.subarray(i, i + chunkSize);
+			binary += String.fromCharCode.apply(null, chunk);
+		}
+		return btoa(binary);
 	}
 
 	async zipjsLib() {
@@ -223,7 +238,20 @@ class ZipJsArchive {
 
 		mimeType = mimeType || mime.lookup(entry.filename);
 		const zipjs = await this.zipjsLib();
-		const { BlobWriter } = zipjs;
+		const { BlobWriter, Uint8ArrayWriter } = zipjs;
+
+		const obfuscation = this.obfuscation;
+		if (obfuscation && typeof obfuscation.deobfuscate === "function") {
+			const bytes = Uint8ArrayWriter
+				? await entry.getData(new Uint8ArrayWriter())
+				: new Uint8Array(
+						await (await entry.getData(new BlobWriter(mimeType))).arrayBuffer(),
+					);
+
+			const next = obfuscation.deobfuscate(entry.filename, bytes);
+			return new Blob([next], { type: mimeType });
+		}
+
 		return entry.getData(new BlobWriter(mimeType));
 	}
 
@@ -246,7 +274,21 @@ class ZipJsArchive {
 
 		mimeType = mimeType || mime.lookup(entry.filename);
 		const zipjs = await this.zipjsLib();
-		const { Data64URIWriter } = zipjs;
+		const { Data64URIWriter, Uint8ArrayWriter, BlobWriter } = zipjs;
+
+		const obfuscation = this.obfuscation;
+		if (obfuscation && typeof obfuscation.deobfuscate === "function") {
+			const bytes = Uint8ArrayWriter
+				? await entry.getData(new Uint8ArrayWriter())
+				: new Uint8Array(
+						await (await entry.getData(new BlobWriter(mimeType))).arrayBuffer(),
+					);
+
+			const next = obfuscation.deobfuscate(entry.filename, bytes);
+			const base64 = this.uint8ArrayToBase64(next);
+			return `data:${mimeType};base64,${base64}`;
+		}
+
 		return entry.getData(new Data64URIWriter(mimeType));
 	}
 
