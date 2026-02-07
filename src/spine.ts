@@ -3,18 +3,39 @@ import Hook from "./utils/hook";
 import Section from "./section";
 import {replaceBase, replaceCanonical, replaceMeta} from "./utils/replacements";
 
+interface SpineHooks {
+	serialize: Hook;
+	content: Hook;
+}
+
 /**
  * A collection of Spine Items
  */
 class Spine {
+	spineItems: Section[];
+	spineByHref: Record<string, number>;
+	spineById: Record<string, number>;
+
+	hooks: SpineHooks | undefined;
+	epubcfi: EpubCFI | undefined;
+
+	loaded: boolean;
+
+	items: any;
+	manifest: any;
+	spineNodeIndex: any;
+	baseUrl: string | undefined;
+	length: number | undefined;
+
 	constructor() {
 		this.spineItems = [];
 		this.spineByHref = {};
 		this.spineById = {};
 
-		this.hooks = {};
-		this.hooks.serialize = new Hook();
-		this.hooks.content = new Hook();
+		this.hooks = {
+			serialize: new Hook(),
+			content: new Hook()
+		};
 
 		// Register replacements
 		this.hooks.content.register(replaceBase);
@@ -38,7 +59,7 @@ class Spine {
 	 * @param  {method} resolver URL resolver
 	 * @param  {method} canonical Resolve canonical url
 	 */
-	unpack(_package, resolver, canonical) {
+	unpack(_package: any, resolver: any, canonical: any): void {
 
 		this.items = _package.spine;
 		this.manifest = _package.manifest;
@@ -121,7 +142,7 @@ class Spine {
 	 * @example spine.get("chap1.html");
 	 * @example spine.get("#id1234");
 	 */
-	get(target) {
+	get(target?: any): Section | null {
 		var index = 0;
 
 		if (typeof target === "undefined") {
@@ -153,7 +174,7 @@ class Spine {
 	 * @private
 	 * @param  {Section} section
 	 */
-	append(section) {
+	append(section: Section): number {
 		var index = this.spineItems.length;
 		section.index = index;
 
@@ -175,7 +196,7 @@ class Spine {
 	 * @private
 	 * @param  {Section} section
 	 */
-	prepend(section) {
+	prepend(section: Section): number {
 		// var index = this.spineItems.unshift(section);
 		this.spineByHref[section.href] = 0;
 		this.spineById[section.idref] = 0;
@@ -197,7 +218,7 @@ class Spine {
 	 * @private
 	 * @param  {Section} section
 	 */
-	remove(section) {
+	remove(section: Section): Section[] | undefined {
 		var index = this.spineItems.indexOf(section);
 
 		if(index > -1) {
@@ -212,15 +233,15 @@ class Spine {
 	 * Loop over the Sections in the Spine
 	 * @return {method} forEach
 	 */
-	each() {
-		return this.spineItems.forEach.apply(this.spineItems, arguments);
+	each(...args: any[]): any {
+		return this.spineItems.forEach.apply(this.spineItems, args as any);
 	}
 
 	/**
 	 * Find the first Section in the Spine
 	 * @return {Section} first section
 	 */
-	first() {
+	first(): Section | undefined {
 		let index = 0;
 
 		do {
@@ -237,7 +258,7 @@ class Spine {
 	 * Find the last Section in the Spine
 	 * @return {Section} last section
 	 */
-	last() {
+	last(): Section | undefined {
 		let index = this.spineItems.length-1;
 
 		do {
@@ -249,12 +270,12 @@ class Spine {
 		} while (index >= 0);
 	}
 
-	destroy() {
+	destroy(): void {
 		this.each((section) => section.destroy());
 
-		this.spineItems = undefined
-		this.spineByHref = undefined
-		this.spineById = undefined
+		this.spineItems = undefined as any;
+		this.spineByHref = undefined as any;
+		this.spineById = undefined as any;
 
 		this.hooks.serialize.clear();
 		this.hooks.content.clear();
