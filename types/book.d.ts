@@ -7,6 +7,7 @@ import {
 import Rendition, { RenditionOptions } from "./rendition";
 import Section, { SpineItem } from "./section";
 import Archive from "./archive";
+import ZipJsArchive from "./zipjs-archive";
 import Navigation from "./navigation";
 import PageList, {PageListItem} from "./pagelist";
 import Spine from "./spine";
@@ -39,6 +40,8 @@ export interface BookOptions {
   canonical?: (path: string) => string,
   openAs?: string,
   store?: string,
+  archiveMethod?: "jszip" | "zipjs",
+  zipjs?: any,
   metrics?: boolean | BookMetricsOptions,
   prefetchDistance?: number,
   maxLoadedSections?: number,
@@ -46,7 +49,7 @@ export interface BookOptions {
 }
 
 export default class Book {
-    constructor(url: string | ArrayBuffer | Blob, options?: BookOptions);
+    constructor(url: string | ArrayBuffer | Uint8Array | Blob, options?: BookOptions);
     constructor(options?: BookOptions);
 
     settings: BookOptions;
@@ -71,7 +74,7 @@ export default class Book {
     url: Url;
     path: Path;
     archived: boolean;
-    archive: Archive;
+    archive: Archive | ZipJsArchive;
     resources: Resources;
     rendition: Rendition
     container: Container;
@@ -85,9 +88,9 @@ export default class Book {
 
     destroy(): void;
 
-    determineType(input: string | ArrayBuffer | Blob): string;
+    determineType(input: string | ArrayBuffer | Uint8Array | Blob): string;
 
-    open(input: string | ArrayBuffer | Blob, what?: string): Promise<Book>;
+    open(input: string | ArrayBuffer | Uint8Array | Blob, what?: string): Promise<Book>;
 
     getRange(cfiRange: string): Promise<Range>;
 
@@ -143,7 +146,7 @@ export default class Book {
 
     openContainer(url: string): Promise<string>;
 
-    openEpub(data: BinaryType, encoding?: string): Promise<Book>;
+    openEpub(data: string | ArrayBuffer | Uint8Array | Blob, encoding?: string): Promise<Book>;
 
     openManifest(url: string): Promise<Book>;
 
@@ -163,7 +166,7 @@ export default class Book {
 
     setRequestHeaders(headers: object): void;
 
-    unarchive(input: BinaryType, encoding?: string): Promise<Archive>;
+    unarchive(input: string | ArrayBuffer | Uint8Array | Blob, encoding?: string): Promise<Archive | ZipJsArchive>;
 
     store(name: string): Store;
 

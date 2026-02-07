@@ -32,6 +32,8 @@ module.exports = function(config) {
 
       {pattern: 'src/*.js', watched: true, included: false, served: false},
 
+      {pattern: 'node_modules/@zip.js/zip.js/dist/zip.min.js', watched: false, included: true, served: true},
+
       {pattern: 'test/*.js', watched: false},
 
       {pattern: 'test/fixtures/**/*', watched: false, included: false, served: true},

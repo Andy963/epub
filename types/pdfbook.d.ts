@@ -17,7 +17,7 @@ export interface PdfBookOptions {
 }
 
 export default class PdfBook {
-  constructor(url?: string | ArrayBuffer | Blob, options?: PdfBookOptions);
+  constructor(url?: string | ArrayBuffer | Uint8Array | Blob, options?: PdfBookOptions);
   constructor(options?: PdfBookOptions);
 
   opened: Promise<PdfBook>;
@@ -43,7 +43,7 @@ export default class PdfBook {
     pageFromCfi: (cfi: string) => number;
   };
 
-  open(input: string | ArrayBuffer | Blob): Promise<PdfBook>;
+  open(input: string | ArrayBuffer | Uint8Array | Blob): Promise<PdfBook>;
   coverUrl(): Promise<string | null>;
   section(target: string | number): any;
   cancelPrefetch(): number;

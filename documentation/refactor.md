@@ -44,6 +44,48 @@ const book = ePub("/path/to/book.epub", {
 });
 ```
 
+## 3.1 Zip.js Archive Backend (No Whole-File Load)
+
+默认的归档 EPUB 解压依赖 JSZip，会在 `open()` 阶段把整个 zip 文件读入内存。为了对齐 foliate-js 的“按需读取”思路，可以启用 `archiveMethod: "zipjs"`（依赖 zip.js）。
+
+启用后：
+
+- 打开本地 `File/Blob` 时，zip.js 会按需读取条目内容，不要求整本载入内存；
+- 打开远程 `*.epub` URL 时，zip.js 会尝试使用 `HttpRangeReader`（需要服务端支持 `Accept-Ranges`，并满足 CORS 头部要求）；否则会退化为普通 HTTP reader。
+- 当前 zip.js 的 HTTP reader 不支持 `withCredentials`，如需带 cookie/鉴权头，建议自行在应用侧代理下载或改为先 `fetch(...).arrayBuffer()` 再传给 `ePub(buffer, ...)`。
+
+```js
+import ePub from "epubjs";
+import * as zipjs from "@zip.js/zip.js";
+
+const book = ePub(fileBlobOrUrl, {
+  archiveMethod: "zipjs",
+  zipjs
+});
+```
+
+如果你使用的是 `dist/epub.min.js`（UMD 单文件），需要在应用侧提供 zip.js（通过 script 或显式注入模块）：
+
+```js
+import * as zipjs from "@zip.js/zip.js";
+import ePub from "epubjs";
+
+const book = ePub(fileBlobOrUrl, {
+  archiveMethod: "zipjs",
+  zipjs
+});
+```
+
+如果你更偏向 script 方式（全局变量为 `zip`）：
+
+```html
+<script src="/path/to/zip.min.js"></script>
+<script src="/path/to/epub.min.js"></script>
+<script>
+  const book = ePub("/path/to/book.epub", { archiveMethod: "zipjs" });
+</script>
+```
+
 ## 4. Abortable Requests
 
 内部请求链路支持 `AbortSignal`（XHR abort），适用于预取取消、搜索取消等场景。
