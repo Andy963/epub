@@ -1,4 +1,6 @@
 class PdfSection {
+	[key: string]: any;
+
 	constructor(book, pageNumber) {
 		this.book = book;
 		this.pageNumber = pageNumber;
@@ -69,4 +71,3 @@ class PdfSection {
 }
 
 export default PdfSection;
-
