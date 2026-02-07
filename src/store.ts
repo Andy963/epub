@@ -5,6 +5,21 @@ import Path from "./utils/path";
 import EventEmitter from "event-emitter";
 import localforage from "localforage";
 
+type StoreResolver = (href: string) => string;
+
+type StoreRequester = (
+	url: string,
+	type?: string | null,
+	withCredentials?: boolean,
+	headers?: Record<string, string>
+) => Promise<any>;
+
+interface StoreResources {
+	resources: Array<{
+		href: string;
+	}>;
+}
+
 /**
  * Handles saving and requesting files from local storage
  * @class
@@ -13,8 +28,22 @@ import localforage from "localforage";
  * @param {function} [resolver]
  */
 class Store {
+	urlCache: Record<string, string>;
+	storage: LocalForage | undefined;
 
-	constructor(name, requester, resolver) {
+	name: string;
+	requester: StoreRequester;
+	resolver: StoreResolver | undefined;
+
+	online: boolean;
+	private _status: ((event: Event) => void) | undefined;
+
+	on: (event: string, listener: (...args: any[]) => void) => this;
+	once: (event: string, listener: (...args: any[]) => void) => this;
+	off: (event: string, listener?: (...args: any[]) => void) => this;
+	emit: (event: string, ...args: any[]) => boolean;
+
+	constructor(name: string, requester?: StoreRequester, resolver?: StoreResolver) {
 		this.urlCache = {};
 
 		this.storage = undefined;
@@ -35,14 +64,10 @@ class Store {
 	 * Requires localForage if it isn't there
 	 * @private
 	 */
-	checkRequirements(){
+	checkRequirements(): void {
 		try {
-			let store;
-			if (typeof localforage === "undefined") {
-				store = localforage;
-			}
-			this.storage = store.createInstance({
-					name: this.name
+			this.storage = localforage.createInstance({
+				name: this.name
 			});
 		} catch (e) {
 			throw new Error("localForage lib not loaded");
@@ -53,7 +78,7 @@ class Store {
 	 * Add online and offline event listeners
 	 * @private
 	 */
-	addListeners() {
+	addListeners(): void {
 		this._status = this.status.bind(this);
 		window.addEventListener('online',  this._status);
 	  window.addEventListener('offline', this._status);
@@ -63,7 +88,9 @@ class Store {
 	 * Remove online and offline event listeners
 	 * @private
 	 */
-	removeListeners() {
+	removeListeners(): void {
+		if (!this._status) return;
+
 		window.removeEventListener('online',  this._status);
 	  window.removeEventListener('offline', this._status);
 		this._status = undefined;
@@ -73,7 +100,7 @@ class Store {
 	 * Update the online / offline status
 	 * @private
 	 */
-	status(event) {
+	status(_event: Event): void {
 		let online = navigator.onLine;
 		this.online = online;
 		if (online) {
@@ -89,20 +116,23 @@ class Store {
 	 * @param  {boolean} [force] force resaving resources
 	 * @return {Promise<object>} store objects
 	 */
-	add(resources, force) {
+	add(resources: StoreResources, force?: boolean): Promise<any[]> {
+		if (!this.storage) {
+			return Promise.reject(new Error("Store is not initialized"));
+		}
 		let mapped = resources.resources.map((item) => {
 			let { href } = item;
-			let url = this.resolver(href);
+			let url = this.resolver!(href);
 			let encodedUrl = window.encodeURIComponent(url);
 
-			return this.storage.getItem(encodedUrl).then((item) => {
-				if (!item || force) {
+			return this.storage!.getItem<any>(encodedUrl).then((storedItem) => {
+				if (!storedItem || force) {
 					return this.requester(url, "binary")
 						.then((data) => {
-							return this.storage.setItem(encodedUrl, data);
+							return this.storage!.setItem(encodedUrl, data);
 						});
 				} else {
-					return item;
+					return storedItem;
 				}
 			});
 
@@ -117,13 +147,16 @@ class Store {
 	 * @param  {object} [headers]
 	 * @return {Promise<Blob>}
 	 */
-	put(url, withCredentials, headers) {
+	put(url: string, withCredentials?: boolean, headers?: Record<string, string>): Promise<any> {
+		if (!this.storage) {
+			return Promise.reject(new Error("Store is not initialized"));
+		}
 		let encodedUrl = window.encodeURIComponent(url);
 
-		return this.storage.getItem(encodedUrl).then((result) => {
+		return this.storage.getItem<any>(encodedUrl).then((result) => {
 			if (!result) {
 				return this.requester(url, "binary", withCredentials, headers).then((data) => {
-					return this.storage.setItem(encodedUrl, data);
+					return this.storage!.setItem(encodedUrl, data);
 				});
 			}
 			return result;
@@ -138,7 +171,7 @@ class Store {
 	 * @param  {object} [headers]
 	 * @return {Promise<Blob | string | JSON | Document | XMLDocument>}
 	 */
-	request(url, type, withCredentials, headers){
+	request(url: string, type?: string | null, withCredentials?: boolean, headers?: Record<string, string>): Promise<any> {
 		if (this.online) {
 			// From network
 			return this.requester(url, type, withCredentials, headers).then((data) => {
@@ -159,8 +192,7 @@ class Store {
 	 * @param  {string} [type] specify the type of the returned result
 	 * @return {Promise<Blob | string | JSON | Document | XMLDocument>}
 	 */
-	retrieve(url, type) {
-		var deferred = new defer();
+	retrieve(url: string, type?: string | null): Promise<any> {
 		var response;
 		var path = new Path(url);
 
@@ -199,7 +231,7 @@ class Store {
 	 * @param  {string} [type]
 	 * @return {any} the parsed result
 	 */
-	handleResponse(response, type){
+	handleResponse(response: any, type: string): any {
 		var r;
 
 		if(type == "json") {
@@ -207,15 +239,15 @@ class Store {
 		}
 		else
 		if(isXml(type)) {
-			r = parse(response, "text/xml");
+			r = parse(response, "text/xml", false);
 		}
 		else
 		if(type == "xhtml") {
-			r = parse(response, "application/xhtml+xml");
+			r = parse(response, "application/xhtml+xml", false);
 		}
 		else
 		if(type == "html" || type == "htm") {
-			r = parse(response, "text/html");
+			r = parse(response, "text/html", false);
 		 } else {
 			 r = response;
 		 }
@@ -229,10 +261,13 @@ class Store {
 	 * @param  {string} [mimeType]
 	 * @return {Blob}
 	 */
-	getBlob(url, mimeType){
+	getBlob(url: string, mimeType?: string): Promise<Blob | undefined> {
+		if (!this.storage) {
+			return Promise.reject(new Error("Store is not initialized"));
+		}
 		let encodedUrl = window.encodeURIComponent(url);
 
-		return this.storage.getItem(encodedUrl).then(function(uint8array) {
+		return this.storage.getItem<any>(encodedUrl).then(function(uint8array) {
 			if(!uint8array) return;
 
 			mimeType = mimeType || mime.lookup(url);
@@ -248,12 +283,15 @@ class Store {
 	 * @param  {string} [mimeType]
 	 * @return {string}
 	 */
-	getText(url, mimeType){
+	getText(url: string, mimeType?: string): Promise<string | undefined> {
+		if (!this.storage) {
+			return Promise.reject(new Error("Store is not initialized"));
+		}
 		let encodedUrl = window.encodeURIComponent(url);
 
 		mimeType = mimeType || mime.lookup(url);
 
-		return this.storage.getItem(encodedUrl).then(function(uint8array) {
+		return this.storage.getItem<any>(encodedUrl).then(function(uint8array) {
 			var deferred = new defer();
 			var reader = new FileReader();
 			var blob;
@@ -278,12 +316,15 @@ class Store {
 	 * @param  {string} [mimeType]
 	 * @return {string} base64 encoded
 	 */
-	getBase64(url, mimeType){
+	getBase64(url: string, mimeType?: string): Promise<string | undefined> {
+		if (!this.storage) {
+			return Promise.reject(new Error("Store is not initialized"));
+		}
 		let encodedUrl = window.encodeURIComponent(url);
 
 		mimeType = mimeType || mime.lookup(url);
 
-		return this.storage.getItem(encodedUrl).then((uint8array) => {
+		return this.storage.getItem<any>(encodedUrl).then((uint8array) => {
 			var deferred = new defer();
 			var reader = new FileReader();
 			var blob;
@@ -295,7 +336,7 @@ class Store {
 			reader.addEventListener("loadend", () => {
 				deferred.resolve(reader.result);
 			});
-			reader.readAsDataURL(blob, mimeType);
+			reader.readAsDataURL(blob);
 
 			return deferred.promise;
 		});
@@ -307,9 +348,10 @@ class Store {
 	 * @param  {object} [options.base64] use base64 encoding or blob url
 	 * @return {Promise} url promise with Url string
 	 */
-	createUrl(url, options){
+	createUrl(url: string, options?: { base64?: boolean }): Promise<string> {
 		var deferred = new defer();
-		var _URL = window.URL || window.webkitURL || window.mozURL;
+		const w = window as any;
+		var _URL = window.URL || w.webkitURL || w.mozURL;
 		var tempUrl;
 		var response;
 		var useBase64 = options && options.base64;
@@ -363,14 +405,16 @@ class Store {
 	 * Revoke Temp Url for a archive item
 	 * @param  {string} url url of the item in the store
 	 */
-	revokeUrl(url){
-		var _URL = window.URL || window.webkitURL || window.mozURL;
+	revokeUrl(url: string): void {
+		const w = window as any;
+		var _URL = window.URL || w.webkitURL || w.mozURL;
 		var fromCache = this.urlCache[url];
 		if(fromCache) _URL.revokeObjectURL(fromCache);
 	}
 
-	destroy() {
-		var _URL = window.URL || window.webkitURL || window.mozURL;
+	destroy(): void {
+		const w = window as any;
+		var _URL = window.URL || w.webkitURL || w.mozURL;
 		for (let key in this.urlCache) {
 			const value = this.urlCache[key];
 			if (value && typeof value === "string" && value.indexOf("blob:") === 0) {
