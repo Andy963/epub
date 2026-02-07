@@ -100,6 +100,8 @@ class Rendition {
 		this.hooks.layout = new Hook(this);
 		this.hooks.render = new Hook(this);
 		this.hooks.show = new Hook(this);
+		this.hooks.header = new Hook(this);
+		this.hooks.footer = new Hook(this);
 
 		this.hooks.content.register(this.handleLinks.bind(this));
 		this.hooks.content.register(this.passEvents.bind(this));
@@ -809,6 +811,13 @@ class Rendition {
 
 						this.location = located;
 
+						this.hooks.header.trigger(this.location, this).catch(() => {
+							return;
+						});
+						this.hooks.footer.trigger(this.location, this).catch(() => {
+							return;
+						});
+
 						this.emit(EVENTS.RENDITION.LOCATION_CHANGED, {
 							index: this.location.start.index,
 							href: this.location.start.href,
@@ -827,6 +836,13 @@ class Rendition {
 					}
 
 					this.location = located;
+
+					this.hooks.header.trigger(this.location, this).catch(() => {
+						return;
+					});
+					this.hooks.footer.trigger(this.location, this).catch(() => {
+						return;
+					});
 
 					/**
 					 * @event locationChanged

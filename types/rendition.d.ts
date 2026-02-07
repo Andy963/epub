@@ -70,7 +70,9 @@ export default class Rendition {
       unloaded: Hook,
       layout: Hook,
       render: Hook,
-      show: Hook
+      show: Hook,
+      header: Hook,
+      footer: Hook
     }
     themes: Themes;
     annotations: Annotations;
