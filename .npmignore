@@ -1,3 +1,5 @@
 books
 test
 .babelrc
+.babelrc.json
+types/generated
