@@ -8,6 +8,62 @@ Epub.js provides an interface for common ebook functions (such as rendering, per
 
 [Try it while reading Moby Dick](https://futurepress.github.io/epubjs-reader/)
 
+## 最近更新（相对早期 0.3.x README）
+
+> 这部分用于补齐“近几年新增能力 + TypeScript 迁移现状”，不改变原有 API 使用方式。
+
+### 功能更新（原 JS 时代新增/强化的能力）
+
+- `Book`：新增进度与目录辅助 API：`book.getProgressOf(target)`、`book.getTocItemOf(target)`。
+- `EpubCFI`：`ignoreClass` 支持传入 predicate（`(node) => boolean`），便于在复杂 DOM 中忽略特定节点。
+- `Rendition` / Layout：
+  - 支持 `maxColumnCount`（分页流中限制可见列数，适配超宽屏/Pad）。
+  - 增强 header / footer hooks（用于在重排与翻页时注入自定义 UI / 逻辑）。
+- PDF：提供 `PdfBook` 与 `ePub.pdf(...)` 工厂（基于 pdf.js 的渲染与搜索能力）。
+
+### TypeScript 迁移（当前仓库状态）
+
+- `src/` 已迁移为 TypeScript 源码（`.ts`），对外发布仍是编译后的 JavaScript：
+  - `main`: `lib/index.js`（CJS）
+  - `module`: `es/index.js`（ESM JS，避免下游直接消费 `src/*.ts`）
+  - `types`: `types/index.d.ts`（对外类型入口）
+- 构建策略：Babel 负责产出 JS（`lib/` + `es/`），`tsc` 负责 typecheck / 生成声明（用于回归验证与类型演进）。
+
+#### 使用示例（npm / bundler）
+
+```js
+import ePub, { Book, PdfBook, EpubCFI, Rendition } from "epubjs";
+
+const book = ePub("/path/to/book.epub");
+const rendition = book.renderTo("area", { width: 600, height: 400 });
+await rendition.display();
+```
+
+#### PdfBook 示例（需要 pdf.js）
+
+```js
+import ePub from "epubjs";
+import * as pdfjsLib from "pdfjs-dist";
+
+const pdf = ePub.pdf("/path/to/file.pdf", { pdfjs: pdfjsLib });
+const rendition = pdf.renderTo("area", { width: 600, height: 400 });
+await rendition.display();
+```
+
+### 本地开发注意事项（构建/测试稳定性）
+
+- Webpack 4 + Node >= 17：如遇 OpenSSL 相关错误，使用：
+
+```bash
+export NODE_OPTIONS=--openssl-legacy-provider
+```
+
+- Karma + ChromeHeadless：在无预装 Chrome 的环境需要设置 `CHROME_BIN`：
+
+```bash
+export CHROME_BIN=/path/to/chrome
+```
+
 ## Why EPUB
 
 ![Why EPUB](http://fchasen.com/futurepress/whyepub.png)
