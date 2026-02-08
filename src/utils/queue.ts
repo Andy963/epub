@@ -93,7 +93,7 @@ class Queue {
 					}.bind(this));
 				} else {
 					// Task resolves immediately
-					inwait.deferred.resolve.apply(this.context, result);
+					inwait.deferred.resolve(result);
 					return inwait.promise;
 				}
 
