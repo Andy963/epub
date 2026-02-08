@@ -57,8 +57,7 @@ describe('Core', function() {
 				assert.equal( resolved, "http://example.com/derf.html" );
 			});
 
-			// Doesn't work with path.parse
-			xit("should handle directory with a dot", function() {
+			it("should handle directory with a dot", function() {
 				var a = "http://example.com/fred/chasen/index.epub/";
 
 				var url = new Url(a);
