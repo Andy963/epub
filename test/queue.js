@@ -15,5 +15,18 @@ describe("Queue", function () {
 			assert.equal(value, 123);
 		});
 	});
-});
 
+	it("runs without requestAnimationFrame", function () {
+		const queue = new Queue({});
+		queue.tick = false;
+
+		let taskPromise;
+		assert.doesNotThrow(() => {
+			taskPromise = queue.enqueue(() => 123);
+		});
+
+		return taskPromise.then((value) => {
+			assert.equal(value, 123);
+		});
+	});
+});
