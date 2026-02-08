@@ -86,6 +86,16 @@ describe('Core', function() {
 			});
 
 		});
+
+		describe('#relative()', function () {
+			it("should resolve a relative path", function() {
+				var a = "http://example.com/fred/chasen/";
+				var b = "/fred/chasen/ops/derf.html";
+
+				var resolved = new Url(a).relative(b);
+				assert.equal( resolved, "ops/derf.html" );
+			});
+		});
 	});
 
 	describe('Path', function () {

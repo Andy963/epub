@@ -106,7 +106,7 @@ class Url {
 	 * @returns {string} path
 	 */
 	relative(what: string): string {
-		return path.relative(what, this.directory);
+		return path.relative(this.directory, what);
 	}
 
 	/**
