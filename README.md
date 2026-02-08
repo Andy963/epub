@@ -1,45 +1,49 @@
-# Epub.js v0.3
+# Epub.js v0.31.0
 
 ![FuturePress Views](http://fchasen.com/futurepress/fp.png)
 
-Epub.js is a JavaScript library for rendering ePub documents in the browser, across many devices.
+Epub.js is a JavaScript library for rendering EPUB documents in the browser, across many devices.
 
-Epub.js provides an interface for common ebook functions (such as rendering, persistence and pagination) without the need to develop a dedicated application or plugin. Importantly, it has an incredibly permissive [Free BSD](http://en.wikipedia.org/wiki/BSD_licenses) license.
+Epub.js provides an interface for common ebook functions (such as rendering, persistence and pagination) without the need to develop a dedicated application or plugin. Importantly, it has an incredibly permissive [BSD-2-Clause](https://opensource.org/licenses/BSD-2-Clause) license.
 
 [Try it while reading Moby Dick](https://futurepress.github.io/epubjs-reader/)
 
-## 最近更新（相对早期 0.3.x README）
+## What's New
 
-> 这部分用于补齐“近几年新增能力 + TypeScript 迁移现状”，不改变原有 API 使用方式。
+- TypeScript migration: source is now TypeScript, published outputs remain JavaScript (`lib/` CJS + `es/` ESM) with types in `types/`.
+- New/updated APIs:
+  - `Book#getProgressOf` / `Book#getTocItemOf`
+  - `EpubCFI` `ignoreClass` predicate
+  - `Rendition` `maxColumnCount`
+  - `rendition.hooks.header` / `rendition.hooks.footer`
+  - AbortSignal support across load/search APIs
+- PDF support: `PdfBook` factory via `ePub.pdf(...)` (requires `pdf.js`).
 
-### 功能更新（原 JS 时代新增/强化的能力）
+## Install
 
-- `Book`：新增进度与目录辅助 API：`book.getProgressOf(target)`、`book.getTocItemOf(target)`。
-- `EpubCFI`：`ignoreClass` 支持传入 predicate（`(node) => boolean`），便于在复杂 DOM 中忽略特定节点。
-- `Rendition` / Layout：
-  - 支持 `maxColumnCount`（分页流中限制可见列数，适配超宽屏/Pad）。
-  - 增强 header / footer hooks（用于在重排与翻页时注入自定义 UI / 逻辑）。
-- PDF：提供 `PdfBook` 与 `ePub.pdf(...)` 工厂（基于 pdf.js 的渲染与搜索能力）。
+- npm registry (if available for your version):
 
-### TypeScript 迁移（当前仓库状态）
+```bash
+npm install epubjs
+```
 
-- `src/` 已迁移为 TypeScript 源码（`.ts`），对外发布仍是编译后的 JavaScript：
-  - `main`: `lib/index.js`（CJS）
-  - `module`: `es/index.js`（ESM JS，避免下游直接消费 `src/*.ts`）
-  - `types`: `types/index.d.ts`（对外类型入口）
-- 构建策略：Babel 负责产出 JS（`lib/` + `es/`），`tsc` 负责 typecheck / 生成声明（用于回归验证与类型演进）。
+- GitHub Release tarball:
 
-#### 使用示例（npm / bundler）
+```bash
+npm install https://github.com/Andy963/epub/releases/download/v0.31.0/epubjs-0.31.0.tgz
+```
+
+## Quick Start (npm / bundlers)
 
 ```js
-import ePub, { Book, PdfBook, EpubCFI, Rendition } from "epubjs";
+import ePub from "epubjs";
 
 const book = ePub("/path/to/book.epub");
 const rendition = book.renderTo("area", { width: 600, height: 400 });
 await rendition.display();
 ```
 
-#### PdfBook 示例（需要 pdf.js）
+### PdfBook (requires pdf.js)
 
 ```js
 import ePub from "epubjs";
@@ -50,19 +54,10 @@ const rendition = pdf.renderTo("area", { width: 600, height: 400 });
 await rendition.display();
 ```
 
-### 本地开发注意事项（构建/测试稳定性）
+## Local Dev Notes
 
-- Webpack 4 + Node >= 17：如遇 OpenSSL 相关错误，使用：
-
-```bash
-export NODE_OPTIONS=--openssl-legacy-provider
-```
-
-- Karma + ChromeHeadless：在无预装 Chrome 的环境需要设置 `CHROME_BIN`：
-
-```bash
-export CHROME_BIN=/path/to/chrome
-```
+- Webpack 4 + Node >= 17: set `NODE_OPTIONS=--openssl-legacy-provider`.
+- Karma + ChromeHeadless: if your environment has no Chrome, set `CHROME_BIN` to a Chrome/Chromium binary.
 
 ## Why EPUB
 
@@ -76,19 +71,19 @@ More specifically, the EPUB schema standardizes the table of contents, provides 
 
 ## Getting Started
 
-If using archived `.epub` files include JSZip (this must precede inclusion of epub.js):
+If you need to open archived `.epub` files in the browser UMD build, include JSZip first:
 
 ```html
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
 ```
 
-Get the minified code from the build folder:
+Get the minified code from `dist/`:
 
 ```html
-<script src="../dist/epub.min.js"></script>
+<script src="dist/epub.min.js"></script>
 ```
 
-Set up a element to render to:
+Set up an element to render to:
 
 ```html
 <div id="area"></div>
@@ -140,13 +135,19 @@ book.renderTo("area", { flow: "paginated", width: "900", height: "600" });
 
 [View example](http://futurepress.github.io/epub.js/examples/spreads.html)
 
+Limit visible columns in paginated flow:
+
+```js
+book.renderTo("area", { flow: "paginated", width: "900", height: "600", maxColumnCount: 1 });
+```
+
 Scrolled: `book.renderTo("area", { flow: "scrolled-doc" });`
 
 [View example](http://futurepress.github.io/epub.js/examples/scrolled.html)
 
 ## Scripted Content
 
-[Scripted content](https://www.w3.org/TR/epub-33/#sec-scripted-content), JavasScript the ePub HTML content, is disabled by default due to the potential for executing malicious content. 
+[Scripted content](https://www.w3.org/TR/epub-33/#sec-scripted-content), JavaScript in the EPUB HTML content, is disabled by default due to the potential for executing malicious content.
 
 This is done by sandboxing the iframe the content is rendered into, though it is still recommended to sanitize the ePub content server-side as well.
 
@@ -170,19 +171,28 @@ API documentation is available at [epubjs.org/documentation/0.3/](http://epubjs.
 
 A Markdown version is included in the repo at [documentation/API.md](https://github.com/futurepress/epub.js/blob/master/documentation/md/API.md)
 
+TypeScript definitions are published with the package and are available via `types/index.d.ts`.
+
 ## Running Locally
 
-install [node.js](http://nodejs.org/)
+Install [node.js](http://nodejs.org/)
 
-Then install the project dependences with npm
+Then install the project dependencies with npm:
 
-```javascript
+```bash
 npm install
 ```
 
-You can run the reader locally with the command
+Typecheck:
 
-```javascript
+```bash
+npm run typecheck
+npm run types:test
+```
+
+You can run the reader locally with the command:
+
+```bash
 npm start
 ```
 
@@ -198,9 +208,16 @@ npm start
 
 ## Testing
 
-Test can be run by Karma from NPM
+Tests can be run by Karma via npm.
 
 ```js
+npm test
+```
+
+If your environment has no Chrome installed, set `CHROME_BIN`:
+
+```bash
+export CHROME_BIN=/path/to/chrome
 npm test
 ```
 
@@ -208,25 +225,31 @@ npm test
 
 Builds are concatenated and minified using [webpack](https://webpack.js.org/) and [babel](https://babeljs.io/)
 
-To generate a new build run
+To generate compiled outputs for publishing (`lib/`, `es/`, and `types/generated/`), run:
 
-```javascript
+```bash
+npm run compile
+```
+
+To generate a full distribution build (also builds `dist/` bundles), run:
+
+```bash
 npm run prepare
 ```
 
-or to continuously build run
+or to continuously build run:
 
-```javascript
+```bash
 npm run watch
 ```
 
 ## Hooks
 
-Similar to a plugins, Epub.js implements events that can be "hooked" into. Thus you can interact with and manipulate the contents of the book.
+Similar to plugins, Epub.js implements events that can be "hooked" into. Thus you can interact with and manipulate the contents of the book.
 
 Examples of this functionality is loading videos from YouTube links before displaying a chapter's contents or implementing annotation.
 
-Hooks require an event to register to and a can return a promise to block until they are finished.
+Hooks require an event to register to and can return a promise to block until they are finished.
 
 Example hook:
 
@@ -249,7 +272,9 @@ The parts of the rendering process that can be hooked into are below.
 book.spine.hooks.serialize // Section is being converted to text
 book.spine.hooks.content // Section has been loaded and parsed
 rendition.hooks.render // Section is rendered to the screen
+rendition.hooks.header // Location is reported (header)
 rendition.hooks.content // Section contents have been loaded
+rendition.hooks.footer // Location is reported (footer)
 rendition.hooks.unloaded // Section contents are being unloaded
 ```
 
