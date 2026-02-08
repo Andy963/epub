@@ -36,7 +36,8 @@ class Url {
 		if (!absolute &&
 				baseString !== false &&
 				typeof(baseString) !== "string" &&
-				window && window.location) {
+				typeof window !== "undefined" &&
+				window.location) {
 			this.base = window.location.href;
 		}
 
