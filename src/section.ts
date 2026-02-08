@@ -200,8 +200,8 @@ class Section {
 			find(node);
 		});
 
-		return matches;
-	};
+			return matches;
+		}
 
 
 	/**
@@ -257,14 +257,14 @@ class Section {
 			}
 		}
 
-		const treeWalker = document.createTreeWalker(section.document, NodeFilter.SHOW_TEXT, null, false);
-		let node , nodeList = [];
-		while (node = treeWalker.nextNode()) {
-			nodeList.push(node);
-			if (nodeList.length == maxSeqEle){
-				search(nodeList.slice(0 , maxSeqEle));
-				nodeList = nodeList.slice(1, maxSeqEle);
-			}
+			const treeWalker = document.createTreeWalker(section.document, NodeFilter.SHOW_TEXT, null, false);
+			let nodeList = [];
+			for (let node = treeWalker.nextNode(); node; node = treeWalker.nextNode()) {
+				nodeList.push(node);
+				if (nodeList.length == maxSeqEle){
+					search(nodeList.slice(0 , maxSeqEle));
+					nodeList = nodeList.slice(1, maxSeqEle);
+				}
 		}
 		if (nodeList.length > 0){
 			search(nodeList);

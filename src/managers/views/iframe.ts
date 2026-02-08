@@ -987,46 +987,46 @@ class IframeView {
 		if (cfiRange in this.highlights) {
 			item = this.highlights[cfiRange];
 
-			this.pane.removeMark(item.mark);
-			item.listeners.forEach((l) => {
-				if (l) {
-					item.element.removeEventListener("click", l);
-					item.element.removeEventListener("touchstart", l);
-				};
-			});
-			delete this.highlights[cfiRange];
+				this.pane.removeMark(item.mark);
+				item.listeners.forEach((l) => {
+					if (l) {
+						item.element.removeEventListener("click", l);
+						item.element.removeEventListener("touchstart", l);
+					}
+				});
+				delete this.highlights[cfiRange];
+			}
 		}
-	}
 
 	ununderline(cfiRange) {
 		let item;
 		if (cfiRange in this.underlines) {
 			item = this.underlines[cfiRange];
 			this.pane.removeMark(item.mark);
-			item.listeners.forEach((l) => {
-				if (l) {
-					item.element.removeEventListener("click", l);
-					item.element.removeEventListener("touchstart", l);
-				};
-			});
-			delete this.underlines[cfiRange];
+				item.listeners.forEach((l) => {
+					if (l) {
+						item.element.removeEventListener("click", l);
+						item.element.removeEventListener("touchstart", l);
+					}
+				});
+				delete this.underlines[cfiRange];
+			}
 		}
-	}
 
 	unmark(cfiRange) {
 		let item;
 		if (cfiRange in this.marks) {
 			item = this.marks[cfiRange];
 			this.element.removeChild(item.element);
-			item.listeners.forEach((l) => {
-				if (l) {
-					item.element.removeEventListener("click", l);
-					item.element.removeEventListener("touchstart", l);
-				};
-			});
-			delete this.marks[cfiRange];
+				item.listeners.forEach((l) => {
+					if (l) {
+						item.element.removeEventListener("click", l);
+						item.element.removeEventListener("touchstart", l);
+					}
+				});
+				delete this.marks[cfiRange];
+			}
 		}
-	}
 
 	destroy() {
 		this.disableSelectionScrollLock();
