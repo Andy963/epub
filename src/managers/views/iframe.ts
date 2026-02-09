@@ -254,4 +254,3 @@ class IframeView {
 EventEmitter(IframeView.prototype);
 
 export default IframeView;
-

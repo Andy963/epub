@@ -401,27 +401,17 @@ class Stage {
 	}
 
 	destroy(): void {
-		var base;
+		const base = this.settings.hidden ? this.wrapper : this.container;
 
-		if (this.element) {
+		if (base && base.parentNode) {
+			base.parentNode.removeChild(base);
+		}
 
-			if(this.settings.hidden) {
-				base = this.wrapper;
-			} else {
-				base = this.container;
-			}
-
-			if(this.element.contains(this.container)) {
-				this.element.removeChild(this.container);
-			}
-
-			if (this.resizeFunc) {
-				window.removeEventListener("resize", this.resizeFunc);
-			}
-			if (this.orientationChangeFunc) {
-				window.removeEventListener("orientationChange", this.orientationChangeFunc);
-			}
-
+		if (this.resizeFunc) {
+			window.removeEventListener("resize", this.resizeFunc);
+		}
+		if (this.orientationChangeFunc) {
+			window.removeEventListener("orientationchange", this.orientationChangeFunc);
 		}
 	}
 }

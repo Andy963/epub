@@ -74,12 +74,10 @@ export function render(element, size) {
 export function addEventListeners() {
 	var scroller;
 
-	window.addEventListener(
-		"unload",
-		function (e) {
-			this.destroy();
-		}.bind(this)
-	);
+	this._onUnload = () => {
+		this.destroy();
+	};
+	window.addEventListener("unload", this._onUnload);
 
 	if (!this.settings.fullsize) {
 		scroller = this.container;
@@ -109,7 +107,11 @@ export function removeEventListeners() {
 		scroller = window;
 	}
 
+	if (this._onUnload) {
+		window.removeEventListener("unload", this._onUnload);
+		this._onUnload = undefined;
+	}
+
 	scroller.removeEventListener("scroll", this._onScroll);
 	this._onScroll = undefined;
 }
-

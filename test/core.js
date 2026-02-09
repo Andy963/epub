@@ -57,8 +57,7 @@ describe('Core', function() {
 				assert.equal( resolved, "http://example.com/derf.html" );
 			});
 
-			// Doesn't work with path.parse
-			xit("should handle directory with a dot", function() {
+			it("should handle directory with a dot", function() {
 				var a = "http://example.com/fred/chasen/index.epub/";
 
 				var url = new Url(a);
@@ -86,6 +85,16 @@ describe('Core', function() {
 				assert.equal( resolved, "file:///var/mobile/Containers/Data/Application/books/derf.html" );
 			});
 
+		});
+
+		describe('#relative()', function () {
+			it("should resolve a relative path", function() {
+				var a = "http://example.com/fred/chasen/";
+				var b = "/fred/chasen/ops/derf.html";
+
+				var resolved = new Url(a).relative(b);
+				assert.equal( resolved, "ops/derf.html" );
+			});
 		});
 	});
 

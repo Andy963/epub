@@ -269,9 +269,9 @@ class Annotation {
 	 * Add to a view
 	 * @param {View} view
 	 */
-	attach (view: any) {
-		let {cfiRange, data, type, mark, cb, className, styles} = this;
-		let result;
+		attach (view: any) {
+			let {cfiRange, data, type, cb, className, styles} = this;
+			let result;
 
 		if (type === "highlight") {
 			result = view.highlight(cfiRange, data, cb, className, styles);
@@ -322,4 +322,4 @@ class Annotation {
 EventEmitter(Annotation.prototype);
 
 
-export default Annotations
+export default Annotations;

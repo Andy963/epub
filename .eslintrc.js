@@ -10,17 +10,15 @@ module.exports = {
         "ePub": true,
         "JSZip": true
     },
+    "parser": "@typescript-eslint/parser",
+    "plugins": ["@typescript-eslint"],
     "extends": "eslint:recommended",
     "parserOptions": {
         "ecmaVersion": 2020,
         "sourceType": "module"
     },
     "rules": {
-        "indent": [
-            "error",
-            "tab",
-            { "VariableDeclarator": { "var": 2, "let": 2, "const": 3 } }
-        ],
+        "indent": "off",
         "linebreak-style": [
             "error",
             "unix"
@@ -29,17 +27,31 @@ module.exports = {
             "warn",
             "double"
         ],
-        "semi": [
-            "error",
-            "always"
-        ],
-        "no-unused-vars" : ["warn"],
+        "semi": ["warn", "always"],
         "no-console" : ["warn"],
-        "no-unused-vars": [
-          "error",
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-unused-vars": [
+          "warn",
           { "vars": "all", "args": "none" }
         ],
-        "no-mixed-spaces-and-tabs": ["error", "smart-tabs"],
-        "valid-jsdoc": ["warn"]
-    }
+        "no-mixed-spaces-and-tabs": ["warn", "smart-tabs"],
+        "no-prototype-builtins": "warn",
+        "no-redeclare": "warn",
+        "no-useless-escape": "warn",
+        "valid-jsdoc": "off"
+    },
+    "overrides": [
+        {
+            "files": ["**/*.ts"],
+            "rules": {
+                "no-undef": "off"
+            }
+        },
+        {
+            "files": ["test/**/*.js"],
+            "env": {
+                "mocha": true
+            }
+        }
+    ]
 };

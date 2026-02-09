@@ -28,17 +28,18 @@ class Path {
 		}
 
 		const parsed = this.parse(pathString);
+		const isDir = this.isDirectory(pathString);
 
 		this.path = pathString;
 
-		if (this.isDirectory(pathString)) {
+		if (isDir) {
 			this.directory = pathString;
 		} else {
 			this.directory = parsed.dir + "/";
 		}
 
 		this.filename = parsed.base;
-		this.extension = parsed.ext.slice(1);
+		this.extension = isDir ? "" : parsed.ext.slice(1);
 
 	}
 

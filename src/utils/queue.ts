@@ -93,7 +93,7 @@ class Queue {
 					}.bind(this));
 				} else {
 					// Task resolves immediately
-					inwait.deferred.resolve.apply(this.context, result);
+					inwait.deferred.resolve(result);
 					return inwait.promise;
 				}
 
@@ -130,7 +130,20 @@ class Queue {
 			this.defered = new defer();
 		}
 
-		this.tick.call(window, () => {
+		const schedule = (fn: () => void) => {
+			if (typeof this.tick === "function") {
+				const win = (typeof window !== "undefined") ? window : undefined;
+				try {
+					this.tick.call(win, fn);
+					return;
+				} catch (e) {
+					// Fall back to setTimeout below
+				}
+			}
+			setTimeout(fn, 0);
+		};
+
+		schedule(() => {
 
 			if(this._q.length) {
 
