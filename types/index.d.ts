@@ -20,6 +20,30 @@ export { default as Rendition, Location } from './rendition';
 export { default as Contents } from './contents';
 export { default as Layout } from './layout';
 export { NavItem } from './navigation';
+export {
+  SpeechAnchor,
+  SpeechSegment,
+  SpeechSegmentationBudget,
+  SpeechSegmentationOptions,
+  SpeechSegmentationInput,
+  speechAnchorFromRange,
+  speechAnchorToRange,
+  speechSegmentsFromDocument,
+} from './read-aloud';
+
+export {
+  PlaybackState,
+  PlaybackControllerEvents,
+  PlaybackControllerDriver,
+  PlaybackControllerOptions,
+  PlaybackController,
+} from './playback-controller';
+
+export {
+  SpeechHighlighterOptions,
+  SpeechHighlighter,
+  createSpeechHighlighter,
+} from './speech-highlighter';
 
 declare namespace ePub {
 
