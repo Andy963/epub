@@ -247,6 +247,25 @@ class SpineLoader {
 		return candidates;
 	}
 
+	destroy(): void {
+		this.cancelPrefetch();
+
+		for (const section of Array.from(this.loadedSections.values())) {
+			if (section && typeof section.unload === "function") {
+				try {
+					section.unload();
+				} catch (e) {
+					// NOOP
+				}
+			}
+		}
+
+		this.pinnedSections.clear();
+		this.loadedSections.clear();
+		this.loadedOrder = [];
+		this.performance = undefined;
+	}
+
 	private normalizeMaxLoadedSections(maxLoadedSections: SpineLoaderOptions["maxLoadedSections"]): number {
 		if (maxLoadedSections === false || maxLoadedSections === 0) {
 			return Infinity;
