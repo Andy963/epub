@@ -7,6 +7,8 @@ const DOCUMENT_NODE = 9;
 
 type IgnoreClass = string | ((node: any) => boolean);
 
+const SPINE_POS_REGEX = /\/(\d+)(?:\[[^\]]*\])?\/(\d+)/;
+
 function isIgnored(node: any, ignore: IgnoreClass | undefined) {
 	if (!node || !ignore) {
 		return false;
@@ -380,6 +382,28 @@ class EpubCFI {
 	 * @returns {number} First is earlier = -1, Second is earlier = 1, They are equal = 0
 	 */
 	compare(cfiOne, cfiTwo) {
+		if (typeof cfiOne === "string" && typeof cfiTwo === "string") {
+			const m1 = cfiOne.match(SPINE_POS_REGEX);
+			const m2 = cfiTwo.match(SPINE_POS_REGEX);
+
+			if (m1 && m2) {
+				const s1 = parseInt(m1[2]);
+				const s2 = parseInt(m2[2]);
+
+				if (!isNaN(s1) && !isNaN(s2)) {
+					const i1 = (s1 % 2 === 0) ? (s1 / 2 - 1) : ((s1 - 1) / 2);
+					const i2 = (s2 % 2 === 0) ? (s2 / 2 - 1) : ((s2 - 1) / 2);
+
+					if (i1 > i2) {
+						return 1;
+					}
+					if (i1 < i2) {
+						return -1;
+					}
+				}
+			}
+		}
+
 		var stepsA, stepsB;
 		var terminalA, terminalB;
 
