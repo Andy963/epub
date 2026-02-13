@@ -7,6 +7,86 @@ const DOCUMENT_NODE = 9;
 
 type IgnoreClass = string | ((node: any) => boolean);
 
+function extractSpinePosIndexFromCfiString(cfiStr: string): number | null {
+	if (typeof cfiStr !== "string") {
+		return null;
+	}
+
+	let start = 0;
+	let end = cfiStr.length;
+
+	if (cfiStr.indexOf("epubcfi(") === 0 && cfiStr[end - 1] === ")") {
+		start = 8;
+		end -= 1;
+	}
+
+	const indirectionIndex = cfiStr.indexOf("!", start);
+	const chapterEnd = (indirectionIndex !== -1 && indirectionIndex < end) ? indirectionIndex : end;
+
+	let i = start;
+
+	while (i < chapterEnd && cfiStr.charCodeAt(i) !== 47) {
+		i++;
+	}
+	if (i >= chapterEnd) {
+		return null;
+	}
+	i++;
+
+	let hasDigits = false;
+	while (i < chapterEnd) {
+		const c = cfiStr.charCodeAt(i);
+		if (c >= 48 && c <= 57) {
+			hasDigits = true;
+			i++;
+			continue;
+		}
+		break;
+	}
+	if (!hasDigits) {
+		return null;
+	}
+
+	if (i < chapterEnd && cfiStr.charCodeAt(i) === 91) {
+		const closeIndex = cfiStr.indexOf("]", i + 1);
+		if (closeIndex === -1 || closeIndex >= chapterEnd) {
+			return null;
+		}
+		i = closeIndex + 1;
+	}
+
+	while (i < chapterEnd && cfiStr.charCodeAt(i) !== 47) {
+		i++;
+	}
+	if (i >= chapterEnd) {
+		return null;
+	}
+	i++;
+
+	let step = 0;
+	hasDigits = false;
+	while (i < chapterEnd) {
+		const c = cfiStr.charCodeAt(i);
+		if (c >= 48 && c <= 57) {
+			hasDigits = true;
+			step = step * 10 + (c - 48);
+			i++;
+			continue;
+		}
+		break;
+	}
+
+	if (!hasDigits) {
+		return null;
+	}
+
+	if (step % 2 === 0) {
+		return step / 2 - 1;
+	}
+
+	return (step - 1) / 2;
+}
+
 function isIgnored(node: any, ignore: IgnoreClass | undefined) {
 	if (!node || !ignore) {
 		return false;
@@ -380,6 +460,15 @@ class EpubCFI {
 	 * @returns {number} First is earlier = -1, Second is earlier = 1, They are equal = 0
 	 */
 	compare(cfiOne, cfiTwo) {
+		if (typeof cfiOne === "string" && typeof cfiTwo === "string") {
+			const spinePosA = extractSpinePosIndexFromCfiString(cfiOne);
+			const spinePosB = extractSpinePosIndexFromCfiString(cfiTwo);
+
+			if (spinePosA != null && spinePosB != null && spinePosA !== spinePosB) {
+				return spinePosA > spinePosB ? 1 : -1;
+			}
+		}
+
 		var stepsA, stepsB;
 		var terminalA, terminalB;
 
