@@ -105,6 +105,7 @@ describe('EpubCFI', function() {
 			// Spines
 			assert.equal(epubcfi.compare("epubcfi(/6/4[cover]!/4)", "epubcfi(/6/2[cover]!/4)"), 1, "First spine is greater");
 			assert.equal(epubcfi.compare("epubcfi(/6/4[cover]!/4)", "epubcfi(/6/6[cover]!/4)"), -1, "Second spine is greater");
+			assert.equal(epubcfi.compare("epubcfi(/6[base]/4[cover]!/4)", "epubcfi(/6[base]/2[cover]!/4)"), 1, "Spine comparison ignores base ID assertions");
 
 			// First is deeper
 			assert.equal(epubcfi.compare("epubcfi(/6/2[cover]!/8/2)", "epubcfi(/6/2[cover]!/6)"), 1, "First Element is after Second");
