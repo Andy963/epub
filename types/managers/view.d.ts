@@ -7,12 +7,14 @@ export interface ViewSettings {
   axis?: string,
   flow?: string,
   layout?: Layout,
-  method?: string,
-  width?: number,
-  height?: number,
-  forceEvenPages?: boolean,
-  allowScriptedContent?: boolean
-}
+	  method?: string,
+	  width?: number,
+	  height?: number,
+	  forceEvenPages?: boolean,
+	  allowScriptedContent?: boolean,
+	  allowUnsafeScriptedContent?: boolean,
+	  allowPopups?: boolean
+	}
 
 export default class View {
   constructor(section: Section, options: ViewSettings);
