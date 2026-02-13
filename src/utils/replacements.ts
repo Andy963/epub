@@ -90,58 +90,107 @@ export function replaceLinks(
 
 	var base = qs(contents.ownerDocument, "base");
 	var location = base ? base.getAttribute("href") || undefined : undefined;
-	var replaceLink = function(link){
-		var href = link.getAttribute("href");
+	for (var i = 0; i < links.length; i++) {
+		const link = links[i];
+		const href = link.getAttribute("href");
 		if (!href) {
-			return;
+			continue;
 		}
-
-		if(href.indexOf("mailto:") === 0){
-			return;
+		if (href.indexOf("mailto:") === 0) {
+			continue;
 		}
-
-		var absolute = (href.indexOf("://") > -1) || /^[a-zA-Z][a-zA-Z+.-]*:/.test(href);
-
-		if(absolute){
-
+		const absolute = (href.indexOf("://") > -1) || /^[a-zA-Z][a-zA-Z+.-]*:/.test(href);
+		if (absolute) {
 			link.setAttribute("target", "_blank");
-			link.addEventListener("click", function(event){
-				if (event) {
-					event.preventDefault();
-				}
-				fn(href, link, event);
-			});
+		}
+	}
 
-		}else{
-			var linkUrl: Url | undefined;
+	const stateKey = "__epubjsReplaceLinksState";
+	const existing = (contents as any)[stateKey] as
+		| {
+				fn?: typeof fn;
+				location?: string;
+				handler?: (event: MouseEvent) => void;
+		  }
+		| undefined;
+
+	const state =
+		existing ||
+		({
+			fn: undefined,
+			location: undefined,
+			handler: undefined,
+		} as {
+			fn?: typeof fn;
+			location?: string;
+			handler?: (event: MouseEvent) => void;
+		});
+
+	state.fn = fn;
+	state.location = location;
+
+	if (!state.handler) {
+		state.handler = (event: MouseEvent) => {
+			let target = event && (event.target as any);
+			if (!target) {
+				return;
+			}
+
+			if (target && target.nodeType === 3 && target.parentElement) {
+				target = target.parentElement;
+			}
+
+			const el: Element | null =
+				typeof target.closest === "function" ? target.closest("a[href]") : null;
+			if (!el) {
+				return;
+			}
+
+			if (!contents.contains(el)) {
+				return;
+			}
+
+			const link = el as HTMLAnchorElement;
+			const href = link.getAttribute("href");
+			if (!href) {
+				return;
+			}
+			if (href.indexOf("mailto:") === 0) {
+				return;
+			}
+
+			event.preventDefault();
+
+			const absolute = (href.indexOf("://") > -1) || /^[a-zA-Z][a-zA-Z+.-]*:/.test(href);
+			if (absolute) {
+				link.setAttribute("target", "_blank");
+				state.fn && state.fn(href, link, event);
+				return;
+			}
+
+			let linkUrl: Url | undefined;
 			try {
-				linkUrl = new Url(href, location);	
-			} catch(error) {
+				linkUrl = new Url(href, state.location);
+			} catch (error) {
 				// NOOP
 			}
 
-			link.addEventListener("click", function(event){
-				if (event) {
-					event.preventDefault();
-				}
+			let resolved: string;
+			if (linkUrl && linkUrl.hash) {
+				resolved = linkUrl.Path.path + linkUrl.hash;
+			} else if (linkUrl) {
+				resolved = linkUrl.Path.path;
+			} else {
+				resolved = href;
+			}
 
-				let resolved: string;
-				if(linkUrl && linkUrl.hash) {
-					resolved = linkUrl.Path.path + linkUrl.hash;
-				} else if(linkUrl){
-					resolved = linkUrl.Path.path;
-				} else {
-					resolved = href;
-				}
+			state.fn && state.fn(resolved, link, event);
+		};
 
-				fn(resolved, link, event);
-			});
-		}
-	}.bind(this);
-
-	for (var i = 0; i < links.length; i++) {
-		replaceLink(links[i]);
+		contents.addEventListener("click", state.handler);
 	}
+
+	(contents as any)[stateKey] = state;
 
 
 }
