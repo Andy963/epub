@@ -44,6 +44,7 @@ import ContinuousViewManager from "./managers/continuous/index";
  * @param {boolean | object} [options.snap=false] use snap scrolling
  * @param {string} [options.defaultDirection='ltr'] default text direction
  * @param {boolean} [options.allowScriptedContent=false] enable running scripts in content
+ * @param {boolean} [options.allowUnsafeScriptedContent=false] required to actually enable scripts inside the iframe sandbox (unsafe)
  * @param {boolean} [options.allowPopups=false] enable opening popup in content
  * @param {boolean | number} [options.prefetch=false] prefetch neighboring sections after display
  */
@@ -73,6 +74,7 @@ class Rendition {
 			snap: false,
 			defaultDirection: "ltr",
 			allowScriptedContent: false,
+			allowUnsafeScriptedContent: false,
 			allowPopups: false,
 			openExternalLinks: true,
 			prefetch: false,

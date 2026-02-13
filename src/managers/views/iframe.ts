@@ -72,6 +72,7 @@ class IframeView {
 			method: undefined,
 			forceRight: false,
 			allowScriptedContent: false,
+			allowUnsafeScriptedContent: false,
 			allowPopups: false
 		}, options || {});
 
@@ -147,13 +148,14 @@ class IframeView {
 		this.iframe.style.border = "none";
 
 		// sandbox
-		this.iframe.sandbox = "allow-same-origin";
-		if (this.settings.allowScriptedContent) {
-			this.iframe.sandbox += " allow-scripts";
+		let sandbox = "allow-same-origin";
+		if (this.settings.allowScriptedContent && this.settings.allowUnsafeScriptedContent) {
+			sandbox += " allow-scripts";
 		}
 		if (this.settings.allowPopups) {
-			this.iframe.sandbox += " allow-popups";
+			sandbox += " allow-popups";
 		}
+		this.iframe.setAttribute("sandbox", sandbox);
 		
 		this.iframe.setAttribute("enable-annotation", "true");
 

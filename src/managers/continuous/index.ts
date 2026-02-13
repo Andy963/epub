@@ -23,6 +23,7 @@ class ContinuousViewManager extends DefaultViewManager {
 			snap: false,
 			afterScrolledTimeout: 10,
 			allowScriptedContent: false,
+			allowUnsafeScriptedContent: false,
 			allowPopups: false
 		});
 
@@ -42,6 +43,7 @@ class ContinuousViewManager extends DefaultViewManager {
 			height: 0,
 			forceEvenPages: false,
 			allowScriptedContent: this.settings.allowScriptedContent,
+			allowUnsafeScriptedContent: this.settings.allowUnsafeScriptedContent,
 			allowPopups: this.settings.allowPopups
 		};
 
