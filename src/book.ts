@@ -52,6 +52,7 @@ const INPUT_TYPE = {
  * @param {method} [options.canonical] optional function to determine canonical urls for a path
  * @param {string} [options.openAs] optional string to determine the input type
  * @param {string} [options.store=false] cache the contents in local storage, value should be the name of the reader
+ * @param {string} [options.searchWorkerUrl=undefined] optional URL for the search web worker script (CSP-friendly alternative to blob workers)
  * @returns {Book}
  * @example new Book("/path/to/book.epub", {})
  * @example new Book({ replacements: "blobUrl" })
@@ -85,7 +86,8 @@ class Book {
 			metrics: false,
 			prefetchDistance: 1,
 			maxLoadedSections: 0,
-			lazyResources: false
+			lazyResources: false,
+			searchWorkerUrl: undefined
 		});
 
 		extend(this.settings, options);
@@ -1741,6 +1743,10 @@ class Book {
 	}
 
 	createSearchWorker() {
+		if (this.settings && typeof this.settings.searchWorkerUrl === "string" && this.settings.searchWorkerUrl) {
+			return new Worker(this.settings.searchWorkerUrl);
+		}
+
 		const source = `
 self.onmessage = function(event) {
 	var data = event && event.data;

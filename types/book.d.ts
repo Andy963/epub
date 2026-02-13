@@ -46,7 +46,8 @@ export interface BookOptions {
   metrics?: boolean | BookMetricsOptions,
   prefetchDistance?: number,
   maxLoadedSections?: number,
-  lazyResources?: boolean
+  lazyResources?: boolean,
+  searchWorkerUrl?: string
 }
 
 export default class Book {
