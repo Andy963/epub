@@ -7,6 +7,20 @@ interface SectionLike {
 	idref?: string;
 }
 
+function isUnsafeHref(href: string): boolean {
+	if (!href || typeof href !== "string") {
+		return false;
+	}
+
+	const match = /^[\u0000-\u0020]*([a-z][a-z0-9+.-]*):/i.exec(href);
+	if (!match) {
+		return false;
+	}
+
+	const scheme = match[1].toLowerCase();
+	return scheme === "javascript" || scheme === "vbscript";
+}
+
 export function replaceBase(doc: Document | null | undefined, section: SectionLike): void {
 	var base;
 	var head;
@@ -93,6 +107,11 @@ export function replaceLinks(
 	var replaceLink = function(link){
 		var href = link.getAttribute("href");
 		if (!href) {
+			return;
+		}
+
+		if (isUnsafeHref(href)) {
+			link.removeAttribute("href");
 			return;
 		}
 
