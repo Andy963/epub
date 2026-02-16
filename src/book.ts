@@ -52,6 +52,7 @@ const INPUT_TYPE = {
  * @param {method} [options.canonical] optional function to determine canonical urls for a path
  * @param {string} [options.openAs] optional string to determine the input type
  * @param {string} [options.store=false] cache the contents in local storage, value should be the name of the reader
+ * @param {string} [options.searchWorkerUrl=undefined] optional URL for the search web worker script (CSP-friendly alternative to blob workers)
  * @returns {Book}
  * @example new Book("/path/to/book.epub", {})
  * @example new Book({ replacements: "blobUrl" })
@@ -85,7 +86,8 @@ class Book {
 			metrics: false,
 			prefetchDistance: 1,
 			maxLoadedSections: 0,
-			lazyResources: false
+			lazyResources: false,
+			searchWorkerUrl: undefined
 		});
 
 		extend(this.settings, options);
@@ -1741,6 +1743,10 @@ class Book {
 	}
 
 	createSearchWorker() {
+		if (this.settings && typeof this.settings.searchWorkerUrl === "string" && this.settings.searchWorkerUrl) {
+			return new Worker(this.settings.searchWorkerUrl);
+		}
+
 		const source = `
 self.onmessage = function(event) {
 	var data = event && event.data;
@@ -1904,6 +1910,13 @@ self.onmessage = function(event) {
 	 * Destroy the Book and all associated objects
 	 */
 	destroy() {
+		if (this._destroyed) {
+			return;
+		}
+		this._destroyed = true;
+
+		this.cancelPrefetch && this.cancelPrefetch();
+
 		this.opened = undefined;
 		this.loading = undefined;
 		this.loaded = undefined;
@@ -1913,6 +1926,9 @@ self.onmessage = function(event) {
 		this.isRendered = false;
 
 		this.performance && this.performance.reset();
+
+		this.storage && this.storage.destroy && this.storage.destroy();
+		this.spineLoader && this.spineLoader.destroy && this.spineLoader.destroy();
 
 		this.spine && this.spine.destroy();
 		this.locations && this.locations.destroy();
@@ -1929,14 +1945,17 @@ self.onmessage = function(event) {
 		this.pageList = undefined;
 		this.archive = undefined;
 		this.resources = undefined;
+		this.storage = undefined;
 		this.container = undefined;
 		this.packaging = undefined;
 		this.rendition = undefined;
+		this.displayOptions = undefined;
 
 		this.navigation = undefined;
 		this.url = undefined;
 		this.path = undefined;
 		this.archived = false;
+		this.obfuscation = undefined;
 		this.resourceResolver = undefined;
 		this.spineLoader = undefined;
 		this.performance = undefined;
