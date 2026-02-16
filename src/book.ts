@@ -1904,6 +1904,13 @@ self.onmessage = function(event) {
 	 * Destroy the Book and all associated objects
 	 */
 	destroy() {
+		if (this._destroyed) {
+			return;
+		}
+		this._destroyed = true;
+
+		this.cancelPrefetch && this.cancelPrefetch();
+
 		this.opened = undefined;
 		this.loading = undefined;
 		this.loaded = undefined;
@@ -1913,6 +1920,9 @@ self.onmessage = function(event) {
 		this.isRendered = false;
 
 		this.performance && this.performance.reset();
+
+		this.storage && this.storage.destroy && this.storage.destroy();
+		this.spineLoader && this.spineLoader.destroy && this.spineLoader.destroy();
 
 		this.spine && this.spine.destroy();
 		this.locations && this.locations.destroy();
@@ -1929,14 +1939,17 @@ self.onmessage = function(event) {
 		this.pageList = undefined;
 		this.archive = undefined;
 		this.resources = undefined;
+		this.storage = undefined;
 		this.container = undefined;
 		this.packaging = undefined;
 		this.rendition = undefined;
+		this.displayOptions = undefined;
 
 		this.navigation = undefined;
 		this.url = undefined;
 		this.path = undefined;
 		this.archived = false;
+		this.obfuscation = undefined;
 		this.resourceResolver = undefined;
 		this.spineLoader = undefined;
 		this.performance = undefined;
