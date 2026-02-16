@@ -33,6 +33,7 @@ class DefaultViewManager {
 			snap: false,
 			afterScrolledTimeout: 20,
 			allowScriptedContent: false,
+			allowUnsafeScriptedContent: false,
 			allowPopups: false
 		});
 
@@ -48,6 +49,7 @@ class DefaultViewManager {
 			height: 0,
 			forceEvenPages: true,
 				allowScriptedContent: this.settings.allowScriptedContent,
+				allowUnsafeScriptedContent: this.settings.allowUnsafeScriptedContent,
 				allowPopups: this.settings.allowPopups
 			};
 
