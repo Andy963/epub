@@ -39,23 +39,24 @@ class DefaultViewManager {
 
 		extend(this.settings, options.settings || {});
 
-		this.viewSettings = {
-			ignoreClass: this.settings.ignoreClass,
-			axis: this.settings.axis,
-			flow: this.settings.flow,
+			this.viewSettings = {
+				ignoreClass: this.settings.ignoreClass,
+				axis: this.settings.axis,
+				flow: this.settings.flow,
 			layout: this.layout,
 			method: this.settings.method, // srcdoc, blobUrl, write
 			width: 0,
 			height: 0,
 			forceEvenPages: true,
-			allowScriptedContent: this.settings.allowScriptedContent,
-			allowUnsafeScriptedContent: this.settings.allowUnsafeScriptedContent,
-			allowPopups: this.settings.allowPopups
-		};
+				allowScriptedContent: this.settings.allowScriptedContent,
+				allowUnsafeScriptedContent: this.settings.allowUnsafeScriptedContent,
+				allowPopups: this.settings.allowPopups
+			};
 
-		this.rendered = false;
+			this._layoutNeedsUpdate = true;
+			this.rendered = false;
 
-	}
+		}
 
 	render(element, size){
 		let tag = element.tagName;
@@ -746,15 +747,17 @@ class DefaultViewManager {
 		}
 	}
 
-	currentLocation(){
-		this.updateLayout();
-		if (this.isPaginated && this.settings.axis === "horizontal") {
-			this.location = this.paginatedLocation();
-		} else {
-			this.location = this.scrolledLocation();
+		currentLocation(){
+			if (this._layoutNeedsUpdate || !this._stageSize) {
+				this.updateLayout();
+			}
+			if (this.isPaginated && this.settings.axis === "horizontal") {
+				this.location = this.paginatedLocation();
+			} else {
+				this.location = this.scrolledLocation();
+			}
+			return this.location;
 		}
-		return this.location;
-	}
 
 	scrolledLocation() {
 		let visible = this.visible();
@@ -1027,23 +1030,24 @@ class DefaultViewManager {
 		return bounds;
 	}
 
-	applyLayout(layout) {
+		applyLayout(layout) {
 
-		this.layout = layout;
-		this.updateLayout();
-		if (this.views && this.views.length > 0 && this.layout.name === "pre-paginated") {
-			this.display(this.views.first().section);
-		}
+			this.layout = layout;
+			this._layoutNeedsUpdate = true;
+			this.updateLayout();
+			if (this.views && this.views.length > 0 && this.layout.name === "pre-paginated") {
+				this.display(this.views.first().section);
+			}
 		 // this.manager.layout(this.layout.format);
 	}
 
-	updateLayout() {
+		updateLayout() {
 
-		if (!this.stage) {
-			return;
-		}
+			if (!this.stage) {
+				return;
+			}
 
-		this._stageSize = this.stage.size();
+			this._stageSize = this.stage.size();
 
 		if(!this.isPaginated) {
 			this.layout.calculate(this._stageSize.width, this._stageSize.height);
@@ -1063,11 +1067,12 @@ class DefaultViewManager {
 		}
 
 		// Set the dimensions for views
-		this.viewSettings.width = this.layout.width;
-		this.viewSettings.height = this.layout.height;
+			this.viewSettings.width = this.layout.width;
+			this.viewSettings.height = this.layout.height;
 
-		this.setLayout(this.layout);
-	}
+			this.setLayout(this.layout);
+			this._layoutNeedsUpdate = false;
+		}
 
 	setLayout(layout){
 

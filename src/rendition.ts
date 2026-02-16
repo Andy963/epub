@@ -105,21 +105,24 @@ class Rendition {
 		this.hooks.render = new Hook(this);
 		this.hooks.show = new Hook(this);
 		this.hooks.header = new Hook(this);
-		this.hooks.footer = new Hook(this);
+			this.hooks.footer = new Hook(this);
 
-		this.hooks.content.register(this.handleLinks.bind(this));
-		this.hooks.content.register(this.passEvents.bind(this));
-		this.hooks.content.register(this.adjustImages.bind(this));
+			this.hooks.content.register(this.handleLinks.bind(this));
+			this.hooks.content.register(this.passEvents.bind(this));
+			this.hooks.content.register(this.adjustImages.bind(this));
 
-		this.book.spine.hooks.content.register(this.injectIdentifier.bind(this));
+			this._onSpineInjectIdentifier = this.injectIdentifier.bind(this);
+			this.book.spine.hooks.content.register(this._onSpineInjectIdentifier);
 
-		if (this.settings.stylesheet) {
-			this.book.spine.hooks.content.register(this.injectStylesheet.bind(this));
-		}
+			if (this.settings.stylesheet) {
+				this._onSpineInjectStylesheet = this.injectStylesheet.bind(this);
+				this.book.spine.hooks.content.register(this._onSpineInjectStylesheet);
+			}
 
-		if (this.settings.script) {
-			this.book.spine.hooks.content.register(this.injectScript.bind(this));
-		}
+			if (this.settings.script) {
+				this._onSpineInjectScript = this.injectScript.bind(this);
+				this.book.spine.hooks.content.register(this._onSpineInjectScript);
+			}
 
 		/**
 		 * @member {Themes} themes
@@ -163,14 +166,15 @@ class Rendition {
 		 * @property {boolean} atEnd
 		 * @memberof Rendition
 		 */
-		this.location = undefined;
-		this._hasRequestedDisplay = false;
-		this._lastRequestedTarget = undefined;
+			this.location = undefined;
+			this._hasRequestedDisplay = false;
+			this._lastRequestedTarget = undefined;
+			this._destroyed = false;
 
-		// Hold queue until book is opened
-		this.q.enqueue(this.book.opened);
+			// Hold queue until book is opened
+			this.q.enqueue(this.book.opened);
 
-		this.starting = new defer();
+			this.starting = new defer();
 		/**
 		 * @member {promise} started returns after the rendition has started
 		 * @memberof Rendition
@@ -267,18 +271,33 @@ class Rendition {
 
 		this.layout(this.settings.globalLayoutProperties);
 
-		// Listen for displayed views
-		this.manager.on(EVENTS.MANAGERS.ADDED, this.afterDisplayed.bind(this));
-		this.manager.on(EVENTS.MANAGERS.REMOVED, this.afterRemoved.bind(this));
+			// Listen for displayed views
+			if (!this._onManagerAdded) {
+				this._onManagerAdded = this.afterDisplayed.bind(this);
+			}
+			if (!this._onManagerRemoved) {
+				this._onManagerRemoved = this.afterRemoved.bind(this);
+			}
+			this.manager.on(EVENTS.MANAGERS.ADDED, this._onManagerAdded);
+			this.manager.on(EVENTS.MANAGERS.REMOVED, this._onManagerRemoved);
 
-		// Listen for resizing
-		this.manager.on(EVENTS.MANAGERS.RESIZED, this.onResized.bind(this));
+			// Listen for resizing
+			if (!this._onManagerResized) {
+				this._onManagerResized = this.onResized.bind(this);
+			}
+			this.manager.on(EVENTS.MANAGERS.RESIZED, this._onManagerResized);
 
-		// Listen for rotation
-		this.manager.on(EVENTS.MANAGERS.ORIENTATION_CHANGE, this.onOrientationChange.bind(this));
+			// Listen for rotation
+			if (!this._onManagerOrientationChange) {
+				this._onManagerOrientationChange = this.onOrientationChange.bind(this);
+			}
+			this.manager.on(EVENTS.MANAGERS.ORIENTATION_CHANGE, this._onManagerOrientationChange);
 
-		// Listen for scroll changes
-		this.manager.on(EVENTS.MANAGERS.SCROLLED, this.reportLocation.bind(this));
+			// Listen for scroll changes
+			if (!this._onManagerScrolled) {
+				this._onManagerScrolled = this.reportLocation.bind(this);
+			}
+			this.manager.on(EVENTS.MANAGERS.SCROLLED, this._onManagerScrolled);
 
 		/**
 		 * Emit that rendering has started
@@ -700,17 +719,28 @@ class Rendition {
 	 * Adjust the layout of the rendition to reflowable or pre-paginated
 	 * @param  {object} settings
 	 */
-	layout(settings){
-		if (settings) {
-			this._layout = new Layout(settings);
-			this._layout.spread(settings.spread, this.settings.minSpreadWidth);
+		layout(settings){
+			if (settings) {
+				if (this._layout && this._onLayoutUpdated && typeof this._layout.off === "function") {
+					try {
+						this._layout.off(EVENTS.LAYOUT.UPDATED, this._onLayoutUpdated);
+					} catch (e) {
+						// NOOP
+					}
+				}
+
+				this._layout = new Layout(settings);
+				this._layout.spread(settings.spread, this.settings.minSpreadWidth);
 
 			// this.mapping = new Mapping(this._layout.props);
 
-			this._layout.on(EVENTS.LAYOUT.UPDATED, (props, changed) => {
-				this.emit(EVENTS.RENDITION.LAYOUT, props, changed);
-			})
-		}
+				if (!this._onLayoutUpdated) {
+					this._onLayoutUpdated = (props, changed) => {
+						this.emit(EVENTS.RENDITION.LAYOUT, props, changed);
+					};
+				}
+				this._layout.on(EVENTS.LAYOUT.UPDATED, this._onLayoutUpdated);
+			}
 
 		if (this.manager && this._layout) {
 			this.manager.applyLayout(this._layout);
@@ -964,38 +994,102 @@ class Rendition {
 		return located;
 	}
 
-	/**
-	 * Remove and Clean Up the Rendition
-	 */
-	destroy(){
-		// Clear the queue
-		// this.q.clear();
-		// this.q = undefined;
+		/**
+		 * Remove and Clean Up the Rendition
+		 */
+		destroy(){
+			if (this._destroyed) {
+				return;
+			}
+			this._destroyed = true;
 
-		this.manager && this.manager.destroy();
+			if (this.q && typeof this.q.stop === "function") {
+				this.q.stop();
+			}
 
-		this.book = undefined;
+			if (this._layout && this._onLayoutUpdated && typeof this._layout.off === "function") {
+				try {
+					this._layout.off(EVENTS.LAYOUT.UPDATED, this._onLayoutUpdated);
+				} catch (e) {
+					// NOOP
+				}
+			}
+			this._onLayoutUpdated = undefined;
 
-		// this.views = null;
+			if (this.manager) {
+				if (this._onManagerAdded && typeof this.manager.off === "function") {
+					this.manager.off(EVENTS.MANAGERS.ADDED, this._onManagerAdded);
+				}
+				if (this._onManagerRemoved && typeof this.manager.off === "function") {
+					this.manager.off(EVENTS.MANAGERS.REMOVED, this._onManagerRemoved);
+				}
+				if (this._onManagerResized && typeof this.manager.off === "function") {
+					this.manager.off(EVENTS.MANAGERS.RESIZED, this._onManagerResized);
+				}
+				if (this._onManagerOrientationChange && typeof this.manager.off === "function") {
+					this.manager.off(EVENTS.MANAGERS.ORIENTATION_CHANGE, this._onManagerOrientationChange);
+				}
+				if (this._onManagerScrolled && typeof this.manager.off === "function") {
+					this.manager.off(EVENTS.MANAGERS.SCROLLED, this._onManagerScrolled);
+				}
 
-		// this.hooks.display.clear();
-		// this.hooks.serialize.clear();
-		// this.hooks.content.clear();
-		// this.hooks.layout.clear();
-		// this.hooks.render.clear();
-		// this.hooks.show.clear();
-		// this.hooks = {};
+				try {
+					typeof this.manager.destroy === "function" && this.manager.destroy();
+				} catch (e) {
+					// NOOP
+				}
+			}
 
-		// this.themes.destroy();
-		// this.themes = undefined;
+			this._onManagerAdded = undefined;
+			this._onManagerRemoved = undefined;
+			this._onManagerResized = undefined;
+			this._onManagerOrientationChange = undefined;
+			this._onManagerScrolled = undefined;
 
-		// this.epubcfi = undefined;
+			const spineContentHooks =
+				this.book &&
+				this.book.spine &&
+				this.book.spine.hooks &&
+				this.book.spine.hooks.content;
+			if (spineContentHooks && typeof spineContentHooks.deregister === "function") {
+				this._onSpineInjectIdentifier &&
+					spineContentHooks.deregister(this._onSpineInjectIdentifier);
+				this._onSpineInjectStylesheet &&
+					spineContentHooks.deregister(this._onSpineInjectStylesheet);
+				this._onSpineInjectScript &&
+					spineContentHooks.deregister(this._onSpineInjectScript);
+			}
 
-		// this.starting = undefined;
-		// this.started = undefined;
+			this._onSpineInjectIdentifier = undefined;
+			this._onSpineInjectStylesheet = undefined;
+			this._onSpineInjectScript = undefined;
 
+			if (this.hooks) {
+				for (const key in this.hooks) {
+					const hook = this.hooks[key];
+					hook && typeof hook.clear === "function" && hook.clear();
+				}
+			}
 
-	}
+			if (this.themes && typeof this.themes.destroy === "function") {
+				this.themes.destroy();
+			}
+
+			this.themes = undefined;
+			this.annotations = undefined;
+			this.hooks = undefined;
+
+			this.manager = undefined;
+			this.View = undefined;
+			this.ViewManager = undefined;
+			this.book = undefined;
+			this.displaying = undefined;
+			this.location = undefined;
+			this._layout = undefined;
+			this.q = undefined;
+			this.starting = undefined;
+			this.started = undefined;
+		}
 
 	/**
 	 * Pass the events from a view's Contents
