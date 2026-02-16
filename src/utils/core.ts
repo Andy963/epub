@@ -313,11 +313,11 @@ export function borders(el) {
  * @returns {BoundingClientRect}
  * @memberof Core
  */
-export function nodeBounds(node) {
+export function nodeBounds(node, range?) {
 	let elPos;
 	let doc = node.ownerDocument;
 	if(node.nodeType == Node.TEXT_NODE){
-		let elRange = doc.createRange();
+		let elRange = range || doc.createRange();
 		elRange.selectNodeContents(node);
 		elPos = elRange.getBoundingClientRect();
 	} else {
