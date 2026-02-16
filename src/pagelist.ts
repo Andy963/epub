@@ -207,14 +207,15 @@ class PageList {
 			return -1;
 		}
 
-		var index = indexOfSorted(cfi, this.locations, epubcfi.compare);
+			const compare = epubcfi.compare.bind(epubcfi);
+			var index = indexOfSorted(cfi, this.locations, compare);
 		if(index != -1) {
 			pg = this.pages[index];
 		} else {
 			// Otherwise add it to the list of locations
 			// Insert it in the correct position in the locations page
 			//index = EPUBJS.core.insert(cfi, this.locations, this.epubcfi.compare);
-			index = locationOf(cfi, this.locations, epubcfi.compare);
+				index = locationOf(cfi, this.locations, compare);
 			// Get the page at the location just before the new one, or return the first
 			pg = index-1 >= 0 ? this.pages[index-1] : this.pages[0];
 			if(pg !== undefined) {

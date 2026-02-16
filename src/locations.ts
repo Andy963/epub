@@ -586,7 +586,8 @@ self.onmessage = (event) => {
 			return -1;
 		}
 
-		loc = locationOf(cfi, this._locations, this.epubcfi.compare);
+			const compare = this.epubcfi.compare.bind(this.epubcfi);
+			loc = locationOf(cfi, this._locations, compare);
 
 		if (loc > this.total) {
 			return this.total;
