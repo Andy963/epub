@@ -7,6 +7,20 @@ interface SectionLike {
 	idref?: string;
 }
 
+function isUnsafeHref(href: string): boolean {
+	if (!href || typeof href !== "string") {
+		return false;
+	}
+
+		const match = /^\s*([a-z][a-z0-9+.-]*):/i.exec(href);
+	if (!match) {
+		return false;
+	}
+
+	const scheme = match[1].toLowerCase();
+	return scheme === "javascript" || scheme === "vbscript";
+}
+
 export function replaceBase(doc: Document | null | undefined, section: SectionLike): void {
 	var base;
 	var head;
@@ -96,6 +110,10 @@ export function replaceLinks(
 		if (!href) {
 			continue;
 		}
+		if (isUnsafeHref(href)) {
+			link.removeAttribute("href");
+			continue;
+		}
 		if (href.indexOf("mailto:") === 0) {
 			continue;
 		}
@@ -150,14 +168,19 @@ export function replaceLinks(
 				return;
 			}
 
-			const link = el as HTMLAnchorElement;
-			const href = link.getAttribute("href");
-			if (!href) {
-				return;
-			}
-			if (href.indexOf("mailto:") === 0) {
-				return;
-			}
+				const link = el as HTMLAnchorElement;
+				const href = link.getAttribute("href");
+				if (!href) {
+					return;
+				}
+				if (isUnsafeHref(href)) {
+					event.preventDefault();
+					link.removeAttribute("href");
+					return;
+				}
+				if (href.indexOf("mailto:") === 0) {
+					return;
+				}
 
 			event.preventDefault();
 

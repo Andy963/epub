@@ -57,6 +57,28 @@ async function replaceSeries(
 	return result;
 }
 
+function getUrlScheme(url: string): string | null {
+	if (!url || typeof url !== "string") {
+		return null;
+	}
+
+	const match = /^[\u0000-\u0020]*([a-z][a-z0-9+.-]*):/i.exec(url);
+	if (!match) {
+		return null;
+	}
+
+	return match[1].toLowerCase();
+}
+
+function isUnsafeUrl(url: string): boolean {
+	const scheme = getUrlScheme(url);
+	if (!scheme) {
+		return false;
+	}
+
+	return scheme === "javascript" || scheme === "vbscript";
+}
+
 /**
  * Handle Package Resources
  * @class
@@ -504,6 +526,10 @@ class Resources {
 			return Promise.resolve(href);
 		}
 
+		if (isUnsafeUrl(href)) {
+			return Promise.resolve("");
+		}
+
 		if (this.isExternalUrl(href)) {
 			return Promise.resolve(href);
 		}
@@ -571,6 +597,10 @@ class Resources {
 	async replaceDocument(doc: Document, baseUrl: string, parentKey: string, parents?: string[]): Promise<void> {
 		const replaceAttribute = async (el, attr) => {
 			const value = el.getAttribute(attr);
+			if (typeof value === "string" && isUnsafeUrl(value)) {
+				el.removeAttribute(attr);
+				return;
+			}
 			const replaced = await this.loadHref(value, baseUrl, parentKey, parents);
 			if (replaced && replaced !== value) {
 				el.setAttribute(attr, replaced);
@@ -603,6 +633,10 @@ class Resources {
 
 		for (const el of Array.from(doc.querySelectorAll("[*|href]:not([href])"))) {
 			const value = el.getAttributeNS(XLINK_NS, "href");
+			if (typeof value === "string" && isUnsafeUrl(value)) {
+				el.removeAttributeNS(XLINK_NS, "href");
+				continue;
+			}
 			const replaced = await this.loadHref(value, baseUrl, parentKey, parents);
 			if (replaced && replaced !== value) {
 				el.setAttributeNS(XLINK_NS, "href", replaced);
@@ -615,7 +649,11 @@ class Resources {
 				continue;
 			}
 			const replaced = await this.replaceSrcset(value, baseUrl, parentKey, parents);
-			if (replaced && replaced !== value) {
+			if (!replaced) {
+				el.removeAttribute("srcset");
+				continue;
+			}
+			if (replaced !== value) {
 				el.setAttribute("srcset", replaced);
 			}
 		}
@@ -650,7 +688,13 @@ class Resources {
 			if (!url) {
 				continue;
 			}
+			if (isUnsafeUrl(url)) {
+				continue;
+			}
 			const replacedUrl = await this.loadHref(url, baseUrl, parentKey, parents);
+			if (!replacedUrl) {
+				continue;
+			}
 			rewritten.push([replacedUrl].concat(segments).join(" "));
 		}
 
