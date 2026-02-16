@@ -141,6 +141,9 @@ class Mapping {
 		var $el;
 		var found;
 		var $prev = root;
+		var doc = root.ownerDocument;
+		// Reuse a single Range object for all text node measurements to reduce GC pressure
+		var range = doc && doc.createRange();
 
 		while (stack.length) {
 
@@ -152,7 +155,7 @@ class Mapping {
 				var elRange;
 
 
-				elPos = nodeBounds(node);
+				elPos = nodeBounds(node, range);
 
 				if (this.horizontal && this.direction === "ltr") {
 
@@ -224,6 +227,9 @@ class Mapping {
 		var $el;
 		var $prev = root;
 		var found;
+		var doc = root.ownerDocument;
+		// Reuse a single Range object for all text node measurements to reduce GC pressure
+		var range = doc && doc.createRange();
 
 		while (stack.length) {
 
@@ -235,7 +241,7 @@ class Mapping {
 				var elPos;
 				var elRange;
 
-				elPos = nodeBounds(node);
+				elPos = nodeBounds(node, range);
 
 				if (this.horizontal && this.direction === "ltr") {
 
