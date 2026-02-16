@@ -12,7 +12,7 @@ function isUnsafeHref(href: string): boolean {
 		return false;
 	}
 
-	const match = /^[\u0000-\u0020]*([a-z][a-z0-9+.-]*):/i.exec(href);
+		const match = /^\s*([a-z][a-z0-9+.-]*):/i.exec(href);
 	if (!match) {
 		return false;
 	}
