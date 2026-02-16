@@ -12,13 +12,29 @@ function isUnsafeHref(href: string): boolean {
 		return false;
 	}
 
-		const match = /^\s*([a-z][a-z0-9+.-]*):/i.exec(href);
+	// Use URL parser to detect protocol, handling obfuscation
+	let protocol = "";
+	try {
+		// Use a dummy base for relative URLs
+		const url = new URL(href, "http://unsafe-check.com");
+		protocol = url.protocol.toLowerCase();
+	} catch (e) {
+		// Fallback to regex if URL parsing fails (e.g. invalid URL)
+	}
+
+	if (protocol === "javascript:" ||
+			protocol === "vbscript:" ||
+			protocol === "data:") {
+		return true;
+	}
+
+	const match = /^\s*([a-z][a-z0-9+.-]*):/i.exec(href);
 	if (!match) {
 		return false;
 	}
 
 	const scheme = match[1].toLowerCase();
-	return scheme === "javascript" || scheme === "vbscript";
+	return scheme === "javascript" || scheme === "vbscript" || scheme === "data";
 }
 
 export function replaceBase(doc: Document | null | undefined, section: SectionLike): void {
