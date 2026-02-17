@@ -18,7 +18,7 @@ function isUnsafeHref(href: string): boolean {
 	}
 
 	const scheme = match[1].toLowerCase();
-	return scheme === "javascript" || scheme === "vbscript";
+	return scheme === "javascript" || scheme === "vbscript" || scheme === "data";
 }
 
 export function replaceBase(doc: Document | null | undefined, section: SectionLike): void {
