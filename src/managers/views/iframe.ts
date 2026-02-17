@@ -611,11 +611,13 @@ class IframeView {
 			left: 0,
 			top: 0,
 			restoreRaf: undefined,
-			endTimeout: undefined
+			endTimeout: undefined,
+			scroller: undefined // Optimization: cache the scroller to avoid DOM lookups during selection
 		};
 
 		let captureScroll = () => {
-			let scroller = this.getScrollContainer();
+			// Optimization: use cached scroller
+			let scroller = this._selectionScrollLock.scroller || this.getScrollContainer();
 			if (scroller === window) {
 				this._selectionScrollLock.left = window.scrollX;
 				this._selectionScrollLock.top = window.scrollY;
@@ -633,7 +635,8 @@ class IframeView {
 			this._selectionScrollLock.restoreRaf = requestAnimationFrame(() => {
 				this._selectionScrollLock.restoreRaf = undefined;
 
-				let scroller = this.getScrollContainer();
+				// Optimization: use cached scroller to prevent layout thrashing
+				let scroller = this._selectionScrollLock.scroller || this.getScrollContainer();
 				let left = this._selectionScrollLock.left;
 				let top = this._selectionScrollLock.top;
 
@@ -659,11 +662,14 @@ class IframeView {
 			clearTimeout(this._selectionScrollLock.endTimeout);
 			this._selectionScrollLock.endTimeout = setTimeout(() => {
 				this._selectionScrollLock.active = false;
+				this._selectionScrollLock.scroller = undefined;
 			}, 150);
 		};
 
 		let onStart = () => {
 			this._selectionScrollLock.active = true;
+			// Optimization: cache scroller on start to avoid repeated calculations
+			this._selectionScrollLock.scroller = this.getScrollContainer();
 			captureScroll();
 		};
 
