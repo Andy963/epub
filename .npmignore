@@ -3,3 +3,8 @@ test
 .babelrc
 .babelrc.json
 types/generated
+.artifacts
+.worktrees
+node_modules
+*.tgz
+npm-debug.log*
