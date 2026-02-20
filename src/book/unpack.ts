@@ -45,10 +45,18 @@ export function unpack(packaging) {
 		return this.applyFontObfuscationReplacementsIfNeeded();
 	});
 
-	this.loadNavigation(this.packaging).then(() => {
-		// this.toc = this.navigation.toc;
-		this.loading.navigation.resolve(this.navigation);
-	});
+	this.loadNavigation(this.packaging)
+		.then(() => {
+			// this.toc = this.navigation.toc;
+			this.loading.navigation.resolve(this.navigation);
+			this.loading.pageList.resolve(this.pageList);
+		})
+		.catch((_err) => {
+			this.navigation = this.navigation || new Navigation();
+			this.pageList = this.pageList || new PageList();
+			this.loading.navigation.resolve(this.navigation);
+			this.loading.pageList.resolve(this.pageList);
+		});
 
 	if (this.packaging.coverPath) {
 		this.cover = this.resolve(this.packaging.coverPath);
@@ -59,7 +67,6 @@ export function unpack(packaging) {
 	this.loading.spine.resolve(this.spine);
 	this.loading.cover.resolve(this.cover);
 	this.loading.resources.resolve(this.resources);
-	this.loading.pageList.resolve(this.pageList);
 
 	this.isOpen = true;
 

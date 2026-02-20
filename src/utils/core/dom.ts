@@ -328,7 +328,12 @@ export function sprint(root, func) {
  * @param  {function | object} filter function or object to filter with
  */
 export function treeWalker(root, func, filter) {
-	var treeWalker = document.createTreeWalker(root, filter, null, false);
+	const doc = root && (root.ownerDocument || root);
+	if (!doc || typeof doc.createTreeWalker === "undefined") {
+		return;
+	}
+
+	var treeWalker = doc.createTreeWalker(root, filter, null, false);
 	let node;
 	while ((node = treeWalker.nextNode())) {
 		func(node);
@@ -462,4 +467,3 @@ export function getParentByTagName(node, tagname) {
 		parent = parent.parentNode;
 	}
 }
-
