@@ -4,7 +4,7 @@ import Hook from "./utils/hook";
 import { sprint } from "./utils/core";
 import { replaceBase } from "./utils/replacements";
 import Request from "./utils/request";
-import { DOMParser as XMLDOMSerializer } from "@xmldom/xmldom";
+import { XMLSerializer as XMLDOMSerializer } from "@xmldom/xmldom";
 
 type SectionRequest = (url: string, type?: string | null) => Promise<any>;
 
@@ -211,7 +211,8 @@ class Section {
 	 * @return {object[]} A list of matches, with form {cfi, excerpt}
 	 */
 	search(_query: string , maxSeqEle = 5): Array<{ cfi: string, excerpt: string }> {
-		if (typeof(document.createTreeWalker) == "undefined") {
+		const doc = this.document;
+		if (!doc || typeof doc.createTreeWalker === "undefined") {
 			return this.find(_query);
 		}
 		let matches = [];
@@ -255,14 +256,14 @@ class Section {
 					});
 				}
 			}
-		}
+			}
 
-			const treeWalker = document.createTreeWalker(section.document, NodeFilter.SHOW_TEXT, null, false);
-			let nodeList = [];
-			for (let node = treeWalker.nextNode(); node; node = treeWalker.nextNode()) {
-				nodeList.push(node);
-				if (nodeList.length == maxSeqEle){
-					search(nodeList.slice(0 , maxSeqEle));
+				const treeWalker = doc.createTreeWalker(doc, NodeFilter.SHOW_TEXT, null, false);
+				let nodeList = [];
+				for (let node = treeWalker.nextNode(); node; node = treeWalker.nextNode()) {
+					nodeList.push(node);
+					if (nodeList.length == maxSeqEle){
+						search(nodeList.slice(0 , maxSeqEle));
 					nodeList = nodeList.slice(1, maxSeqEle);
 				}
 		}

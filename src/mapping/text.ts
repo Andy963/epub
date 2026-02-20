@@ -19,7 +19,12 @@ export function walkTextNodes(root: any, func: (node: any) => any): any {
 	var safeFilter: any = filter.acceptNode;
 	safeFilter.acceptNode = filter.acceptNode;
 
-	var treeWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, safeFilter as any, false);
+	const doc = root && (root.ownerDocument || root);
+	if (!doc || typeof doc.createTreeWalker !== "function") {
+		return;
+	}
+
+	var treeWalker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, safeFilter as any, false);
 	var node;
 	var result;
 	while ((node = treeWalker.nextNode())) {
@@ -72,4 +77,3 @@ export function splitTextNodeIntoRanges(node: any, splitter?: string): Range[] {
 
 	return ranges;
 }
-
