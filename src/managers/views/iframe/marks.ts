@@ -214,7 +214,7 @@ export function unhighlight(cfiRange) {
 			if (l) {
 				item.element.removeEventListener("click", l);
 				item.element.removeEventListener("touchstart", l);
-			};
+			}
 		});
 		delete this.highlights[cfiRange];
 	}
@@ -229,7 +229,7 @@ export function ununderline(cfiRange) {
 			if (l) {
 				item.element.removeEventListener("click", l);
 				item.element.removeEventListener("touchstart", l);
-			};
+			}
 		});
 		delete this.underlines[cfiRange];
 	}
@@ -244,9 +244,8 @@ export function unmark(cfiRange) {
 			if (l) {
 				item.element.removeEventListener("click", l);
 				item.element.removeEventListener("touchstart", l);
-			};
+			}
 		});
 		delete this.marks[cfiRange];
 	}
 }
-
