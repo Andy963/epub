@@ -113,11 +113,11 @@ export async function resolveFootnote(href, options) {
 			if (byId) {
 				target = byId;
 			} else {
-				const safeSelector = decoded.replace(/\\\\/g, "\\\\\\\\").replace(/\"/g, '\\\\\"');
-				target = doc.querySelector(`[id=\"${safeSelector}\"]`);
-				if (!target) {
-					target = doc.querySelector(`[name=\"${safeSelector}\"]`);
-				}
+					const safeSelector = decoded.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, "\\\\\"");
+					target = doc.querySelector(`[id="${safeSelector}"]`);
+					if (!target) {
+						target = doc.querySelector(`[name="${safeSelector}"]`);
+					}
 			}
 		}
 	}
@@ -164,4 +164,3 @@ export async function resolveFootnote(href, options) {
 		text: (container.textContent || "").trim()
 	};
 }
-

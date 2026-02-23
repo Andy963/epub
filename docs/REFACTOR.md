@@ -41,6 +41,9 @@
 - [x] `src/utils/request.ts`（XHR request + XML/HTML/JSON parsing）
 - [x] `src/utils/queue.ts`（Sequential task queue）
 - [x] `src/utils/performance.ts`（Lightweight perf spans/marks tracker）
+- [x] `src/managers/helpers/stage.ts`（Stage container creation + sizing + style rules）
+- [x] `src/managers/helpers/snap.ts`（Paginated touch snap helper）
+- [x] `src/rendition/links.ts`（Link handling + footnote resolution）
 
 ### Tests
 
@@ -54,7 +57,9 @@
 - `src/book/`（已读：`src/book/init.ts`、`src/book/unpack.ts`）
 - `src/epubcfi/`（已读：`src/epubcfi/parse.ts`、`src/epubcfi/compare.ts`）
 - `src/locations/`（已读：`src/locations/generate.ts`、`src/locations/process.ts`）
+- `src/managers/`（已读：`src/managers/helpers/stage.ts`、`src/managers/helpers/snap.ts`）
 - `src/pdf/`（已读：`src/pdf/book.ts`、`src/pdf/book/render.ts`、`src/pdf/book/layers.ts`）
+- `src/rendition/`（已读：`src/rendition/links.ts`）
 
 ## 已完成（Completed）
 
@@ -63,6 +68,9 @@
 - 2026-02-23：`src/locations/worker.ts` 将 worker 源码由“转义字符串”改为可读的多行模板字符串（无行为变更）。
 - 2026-02-23：`src/pdf/book*.ts` 清理无意义的转义（降低 `no-useless-escape` 告警噪音，保持输出不变）。
 - 2026-02-23：`src/utils/queue.ts` 重写为更可读的 TypeScript（类型收敛、抽取 schedule、保持现有执行语义；promise task reject 不再导致队列卡死）。
+- 2026-02-23：`src/managers/helpers/snap.ts` 清理未使用 import / 混合缩进与字符串转义噪音，保持原有滚动与 snap 语义不变。
+- 2026-02-23：`src/managers/helpers/stage.ts` 修复 `no-prototype-builtins` / quotes / semi 告警噪音（不改变布局计算与 DOM 写入行为）。
+- 2026-02-23：`src/rendition/links.ts` 移除无意义的 `\"` 转义，保持 `querySelector` selector 字符串输出不变。
 
 ## 重构点（Backlog）
 
@@ -84,7 +92,7 @@
 - [ ] `src/displayoptions.ts`
 - [ ] `src/index.ts`
 - [ ] `src/layout.ts`
-- [ ] `src/managers/`
+- [ ] `src/managers/`（Partial：已读 `src/managers/helpers/stage.ts`、`src/managers/helpers/snap.ts`）
 - [ ] `src/mapping/`
 - [ ] `src/mapping.ts`
 - [ ] `src/navigation.ts`
@@ -93,7 +101,7 @@
 - [ ] `src/playback-controller/`
 - [ ] `src/playback-controller.ts`
 - [ ] `src/read-aloud.ts`
-- [ ] `src/rendition/`
+- [ ] `src/rendition/`（Partial：已读 `src/rendition/links.ts`）
 - [ ] `src/rendition.ts`
 - [ ] `src/resources/`
 - [ ] `src/resources.ts`

@@ -1,5 +1,5 @@
 import {uuid, isNumber, isElement, windowBounds, extend} from "../../utils/core";
-import throttle from 'lodash/throttle'
+import throttle from "lodash/throttle";
 
 class Stage {
 	settings: any;
@@ -82,8 +82,8 @@ class Stage {
 			container.style.height = height;
 		}
 
-		const toCssSize = (value) => {
-			if (typeof value === "number" && isFinite(value)) {
+		const toCssSize = (value: unknown): string | undefined => {
+			if (typeof value === "number" && Number.isFinite(value)) {
 				return value + "px";
 			}
 			if (typeof value === "string") {
@@ -91,7 +91,7 @@ class Stage {
 			}
 		};
 
-		if (typeof padding === "number" && isFinite(padding) && padding >= 0) {
+		if (typeof padding === "number" && Number.isFinite(padding) && padding >= 0) {
 			container.style.padding = padding + "px";
 		} else if (padding && typeof padding === "object") {
 			const top = toCssSize(padding.top);
@@ -291,7 +291,7 @@ class Stage {
 								bodyPadding.right;
 		}
 
-		if ((this.settings.fullsize && !_height) || !_height) {
+		if (!_height) {
 			height = _windowBounds.height -
 								bodyPadding.top -
 								bodyPadding.bottom;
@@ -343,7 +343,7 @@ class Stage {
 
 		rulesArray.forEach(function(set) {
 			for (var prop in set) {
-				if(set.hasOwnProperty(prop)) {
+				if (Object.prototype.hasOwnProperty.call(set, prop)) {
 					rules += prop + ":" + set[prop] + ";";
 				}
 			}
