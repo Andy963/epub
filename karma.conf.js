@@ -104,8 +104,6 @@ module.exports = function(config) {
 
     // web server port
     port: 9876,
-    // Only listen on loopback to support sandboxed environments
-    listenAddress: "127.0.0.1",
 
 
     // enable / disable colors in the output (reporters and logs)
