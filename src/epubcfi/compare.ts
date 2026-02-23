@@ -6,11 +6,6 @@ export function compare(cfiOne, cfiTwo) {
 	var stepsA, stepsB;
 	var terminalA, terminalB;
 
-	var rangeAStartSteps, rangeAEndSteps;
-	var rangeBEndSteps, rangeBEndSteps;
-	var rangeAStartTerminal, rangeAEndTerminal;
-	var rangeBStartTerminal, rangeBEndTerminal;
-
 	const EpubCFIConstructor = this && this.constructor ? (this.constructor as any) : undefined;
 
 	if(typeof cfiOne === "string") {
@@ -90,4 +85,3 @@ export function equalStep(stepA, stepB) {
 
 	return false;
 }
-
