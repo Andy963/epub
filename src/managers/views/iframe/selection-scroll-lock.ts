@@ -40,12 +40,12 @@ export function enableSelectionScrollLock() {
 		active: false,
 		left: 0,
 		top: 0,
+		scroller: undefined,
 		restoreRaf: undefined,
 		endTimeout: undefined
 	};
 
-	let captureScroll = () => {
-		let scroller = this.getScrollContainer();
+	let captureScroll = (scroller) => {
 		if (scroller === window) {
 			this._selectionScrollLock.left = window.scrollX;
 			this._selectionScrollLock.top = window.scrollY;
@@ -63,7 +63,7 @@ export function enableSelectionScrollLock() {
 		this._selectionScrollLock.restoreRaf = requestAnimationFrame(() => {
 			this._selectionScrollLock.restoreRaf = undefined;
 
-			let scroller = this.getScrollContainer();
+			let scroller = this._selectionScrollLock.scroller || this.getScrollContainer();
 			let left = this._selectionScrollLock.left;
 			let top = this._selectionScrollLock.top;
 
@@ -89,12 +89,14 @@ export function enableSelectionScrollLock() {
 		clearTimeout(this._selectionScrollLock.endTimeout);
 		this._selectionScrollLock.endTimeout = setTimeout(() => {
 			this._selectionScrollLock.active = false;
+			this._selectionScrollLock.scroller = undefined;
 		}, 150);
 	};
 
 	let onStart = () => {
 		this._selectionScrollLock.active = true;
-		captureScroll();
+		this._selectionScrollLock.scroller = this.getScrollContainer();
+		captureScroll(this._selectionScrollLock.scroller);
 	};
 
 	let onSelectionChange = () => {
@@ -158,4 +160,3 @@ export function disableSelectionScrollLock() {
 	this._selectionScrollLock = undefined;
 	this._selectionScrollLockHandlers = undefined;
 }
-
