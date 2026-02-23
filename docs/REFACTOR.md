@@ -6,7 +6,7 @@
 
 ## 当前基线
 
-- Base: `origin/dev` @ `1547883`
+- Base: `origin/dev` @ `6746283`
 - Last updated: 2026-02-23
 
 ## 已阅读模块（Reviewed）
