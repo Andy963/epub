@@ -114,6 +114,7 @@ class Mapping {
 		var $el;
 		var found;
 		var $prev = root;
+		var sharedRange = root.ownerDocument.createRange();
 
 		while (stack.length) {
 
@@ -122,10 +123,8 @@ class Mapping {
 			found = this.walk($el, (node) => {
 				var left, right, top, bottom;
 				var elPos;
-				var elRange;
 
-
-				elPos = nodeBounds(node);
+				elPos = nodeBounds(node, sharedRange);
 
 				if (this.horizontal && this.direction === "ltr") {
 
@@ -197,6 +196,7 @@ class Mapping {
 		var $el;
 		var $prev = root;
 		var found;
+		var sharedRange = root.ownerDocument.createRange();
 
 		while (stack.length) {
 
@@ -206,9 +206,8 @@ class Mapping {
 
 				var left, right, top, bottom;
 				var elPos;
-				var elRange;
 
-				elPos = nodeBounds(node);
+				elPos = nodeBounds(node, sharedRange);
 
 				if (this.horizontal && this.direction === "ltr") {
 

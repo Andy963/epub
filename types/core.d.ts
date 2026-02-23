@@ -26,7 +26,7 @@ export module Core {
 
   export function borders(el: Element): { width: Number, height: Number};
 
-  export function nodeBounds(node: Node): object;
+  export function nodeBounds(node: Node, range?: Range): object;
 
   export function windowBounds(): { width: Number, height: Number, top: Number, left: Number, right: Number, bottom: Number };
 

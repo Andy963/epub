@@ -146,14 +146,15 @@ export function borders(el) {
  * Find the bounds of any node
  * allows for getting bounds of text nodes by wrapping them in a range
  * @param {node} node
+ * @param {Range} [range] Optional Range instance to reuse
  * @returns {BoundingClientRect}
  * @memberof Core
  */
-export function nodeBounds(node) {
+export function nodeBounds(node, range?: Range) {
 	let elPos;
 	let doc = node.ownerDocument;
 	if (node.nodeType == Node.TEXT_NODE) {
-		let elRange = doc.createRange();
+		let elRange = range || doc.createRange();
 		elRange.selectNodeContents(node);
 		elPos = elRange.getBoundingClientRect();
 	} else {
