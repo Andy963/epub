@@ -123,12 +123,16 @@ class Section {
 			then(function(contents){
 				var userAgent = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
 				var isIE = userAgent.indexOf('Trident') >= 0;
-				var Serializer;
-				if (typeof XMLSerializer === "undefined" || isIE) {
-					Serializer = XMLDOMSerializer;
-				} else {
-					Serializer = XMLSerializer;
-				}
+				var NativeXMLSerializer =
+					typeof globalThis !== "undefined" && (globalThis as any).XMLSerializer
+						? (globalThis as any).XMLSerializer
+						: typeof XMLSerializer !== "undefined"
+							? XMLSerializer
+							: undefined;
+
+				var isNativeNode = typeof Node !== "undefined" && contents instanceof Node;
+				var Serializer = !NativeXMLSerializer || isIE || !isNativeNode ? XMLDOMSerializer : NativeXMLSerializer;
+
 				var serializer = new Serializer();
 				this.output = serializer.serializeToString(contents);
 				return this.output;
