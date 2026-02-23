@@ -29,6 +29,8 @@
 - [x] `src/epubcfi/compare.ts`（CFI ordering）
 - [x] `src/epubcfi/parse.ts`（CFI parsing and type checks）
 - [x] `src/epub.ts`（public entry: `ePub()` factory + static exports）
+- [x] `src/locations.ts`（Locations orchestration + worker integration）
+- [x] `src/locations/worker.ts`（Worker protocol + inlined parser implementation）
 - [x] `src/section.ts`（Section load/render/find/search）
 - [x] `src/utils/core.ts`（core utilities re-export surface）
 
@@ -43,19 +45,20 @@
 
 - `src/book/`（已读：`src/book/init.ts`、`src/book/unpack.ts`）
 - `src/epubcfi/`（已读：`src/epubcfi/parse.ts`、`src/epubcfi/compare.ts`）
+- `src/locations/`（已读：`src/locations/generate.ts`、`src/locations/process.ts`）
 
 ## 已完成（Completed）
 
 - 2026-02-22：`src/epub.ts` 清理未使用 import（降低依赖噪音，减少 lint 告警）。
 - 2026-02-23：`src/epubcfi/compare.ts` 移除未使用变量与重复声明，并补充 `EpubCFI.compare` 回归测试。
+- 2026-02-23：`src/locations/worker.ts` 将 worker 源码由“转义字符串”改为可读的多行模板字符串（无行为变更）。
 
 ## 重构点（Backlog）
 
 按优先级从高到低（会随阅读推进持续更新）：
 
-1. `src/locations/worker.ts`：大量字符串转义与格式告警，建议抽取模板与构建逻辑，降低可读性负担（可维护性）。
-2. `src/book/*` / `src/rendition/*`：梳理对象生命周期与依赖方向，减少“隐式全局 / side effect”耦合（可扩展性）。
-3. `src/utils/core/dom.ts`：DOM 遍历/查询工具较集中，建议按“纯函数 vs DOM 环境依赖”分层，便于复用与测试（结构 / 可测试性）。
+1. `src/book/*` / `src/rendition/*`：梳理对象生命周期与依赖方向，减少“隐式全局 / side effect”耦合（可扩展性）。
+2. `src/utils/core/dom.ts`：DOM 遍历/查询工具较集中，建议按“纯函数 vs DOM 环境依赖”分层，便于复用与测试（结构 / 可测试性）。
 
 ## 未阅读模块（Not Yet Reviewed）
 
@@ -70,8 +73,6 @@
 - [ ] `src/displayoptions.ts`
 - [ ] `src/index.ts`
 - [ ] `src/layout.ts`
-- [ ] `src/locations/`
-- [ ] `src/locations.ts`
 - [ ] `src/managers/`
 - [ ] `src/mapping/`
 - [ ] `src/mapping.ts`

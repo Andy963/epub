@@ -81,42 +81,262 @@ const TEXT_NODE = 3;
 const DOCUMENT_NODE = 9;
 
 function getNodeId(node) {
-\tif (!node) {\n\t\treturn null;\n\t}\n\tif (node.id) {\n\t\treturn node.id;\n\t}\n\tif (typeof node.getAttribute === \"function\") {\n\t\treturn node.getAttribute(\"id\") || null;\n\t}\n\treturn null;\n}
-
-function textNodes(container) {
-\tif (!container || !container.childNodes) {\n\t\treturn [];\n\t}\n\treturn Array.prototype.slice.call(container.childNodes).filter((node) => node && node.nodeType === TEXT_NODE);\n}
-
-function elementChildren(container) {
-\tif (!container) {\n\t\treturn [];\n\t}\n\tif (container.children) {\n\t\treturn Array.prototype.slice.call(container.children);\n\t}\n\tif (!container.childNodes) {\n\t\treturn [];\n\t}\n\treturn Array.prototype.slice.call(container.childNodes).filter((node) => node && node.nodeType === ELEMENT_NODE);\n}
-
-function position(anchor) {
-\tif (!anchor || !anchor.parentNode) {\n\t\treturn 0;\n\t}\n\tif (anchor.nodeType === ELEMENT_NODE) {\n\t\tconst children = elementChildren(anchor.parentNode);\n\t\treturn children.indexOf(anchor);\n\t}\n\tconst children = textNodes(anchor.parentNode);\n\treturn children.indexOf(anchor);\n}
-
-function step(node) {
-\tconst nodeType = node && node.nodeType === TEXT_NODE ? \"text\" : \"element\";\n\treturn {\n\t\tid: nodeType === \"element\" ? getNodeId(node) : null,\n\t\ttype: nodeType,\n\t\tindex: position(node)\n\t};\n}
-
-function pathTo(node, offset) {
-\tconst segment = {\n\t\tsteps: [],\n\t\tterminal: { offset: null }\n\t};\n\tlet currentNode = node;\n\twhile (currentNode && currentNode.parentNode && currentNode.parentNode.nodeType !== DOCUMENT_NODE) {\n\t\tsegment.steps.unshift(step(currentNode));\n\t\tcurrentNode = currentNode.parentNode;\n\t}\n\tif (offset != null && offset >= 0) {\n\t\tsegment.terminal.offset = offset;\n\t\tconst lastStep = segment.steps[segment.steps.length - 1];\n\t\tif (!lastStep || lastStep.type !== \"text\") {\n\t\t\tsegment.steps.push({ type: \"text\", index: 0, id: null });\n\t\t}\n\t}\n\treturn segment;\n}
-
-function equalStep(stepA, stepB) {
-\tif (!stepA || !stepB) {\n\t\treturn false;\n\t}\n\treturn stepA.index === stepB.index && stepA.type === stepB.type && stepA.id === stepB.id;\n}
-
-function joinSteps(steps) {
-\tif (!steps || steps.length === 0) {\n\t\treturn \"\";\n\t}\n\treturn steps.map((part) => {\n\t\tlet segment = \"\";\n\t\tif (part.type === \"element\") {\n\t\t\tsegment += (part.index + 1) * 2;\n\t\t}\n\t\tif (part.type === \"text\") {\n\t\t\tsegment += 1 + (2 * part.index);\n\t\t}\n\t\tif (part.id) {\n\t\t\tsegment += \"[\" + part.id + \"]\";\n\t\t}\n\t\treturn segment;\n\t}).join(\"/\");\n}
-
-function segmentString(segment) {
-\tlet segmentString = \"/\";\n\tsegmentString += joinSteps(segment.steps);\n\tif (segment.terminal && segment.terminal.offset != null) {\n\t\tsegmentString += \":\" + segment.terminal.offset;\n\t}\n\treturn segmentString;\n}
-
-function cfiFromRange(range, base) {
-\tconst startSegment = pathTo(range.startContainer, range.startOffset);\n\tconst endSegment = pathTo(range.endContainer, range.endOffset);\n\n\tlet commonLen = 0;\n\tconst maxLen = Math.min(startSegment.steps.length, endSegment.steps.length);\n\twhile (commonLen < maxLen && equalStep(startSegment.steps[commonLen], endSegment.steps[commonLen])) {\n\t\tcommonLen += 1;\n\t}\n\n\tif (commonLen === startSegment.steps.length &&\n\t\t\tcommonLen === endSegment.steps.length &&\n\t\t\tstartSegment.terminal.offset !== endSegment.terminal.offset &&\n\t\t\tcommonLen > 0) {\n\t\tcommonLen -= 1;\n\t}\n\n\tconst pathSteps = startSegment.steps.slice(0, commonLen);\n\tconst startSteps = startSegment.steps.slice(commonLen);\n\tconst endSteps = endSegment.steps.slice(commonLen);\n\n\tconst pathString = segmentString({ steps: pathSteps, terminal: { offset: null } });\n\tconst startString = segmentString({ steps: startSteps, terminal: { offset: startSegment.terminal.offset } });\n\tconst endString = segmentString({ steps: endSteps, terminal: { offset: endSegment.terminal.offset } });\n\n\treturn \"epubcfi(\" + base + \"!\" + pathString + \",\" + startString + \",\" + endString + \")\";\n}
-
-function walkTextNodes(root, callback) {
-\tif (!root) {\n\t\treturn;\n\t}\n\tconst stack = [root];\n\twhile (stack.length) {\n\t\tconst node = stack.pop();\n\t\tif (!node || !node.childNodes) {\n\t\t\tcontinue;\n\t\t}\n\t\tfor (let i = node.childNodes.length - 1; i >= 0; i -= 1) {\n\t\t\tconst child = node.childNodes[i];\n\t\t\tif (!child) {\n\t\t\t\tcontinue;\n\t\t\t}\n\t\t\tif (child.nodeType === TEXT_NODE) {\n\t\t\t\tcallback(child);\n\t\t\t} else if (child.nodeType === ELEMENT_NODE) {\n\t\t\t\tstack.push(child);\n\t\t\t}\n\t\t}\n\t}\n}
-
-function parseLocations(doc, cfiBase, chars) {
-\tconst locations = [];\n\tlet range;\n\tconst body = (doc && (doc.querySelector && doc.querySelector(\"body\"))) ||\n\t\t(doc && doc.getElementsByTagName && doc.getElementsByTagName(\"body\")[0]) ||\n\t\t(doc && doc.documentElement);\n\tlet counter = 0;\n\tlet prev;\n\tconst breakLength = chars || 150;\n\n\tconst createRange = () => {\n\t\treturn {\n\t\t\tstartContainer: undefined,\n\t\t\tstartOffset: undefined,\n\t\t\tendContainer: undefined,\n\t\t\tendOffset: undefined\n\t\t};\n\t};\n\n\tconst parser = (node) => {\n\t\tconst text = node && node.textContent ? node.textContent : \"\";\n\t\tconst len = text.length;\n\t\tlet dist;\n\t\tlet pos = 0;\n\n\t\tif (text.trim().length === 0) {\n\t\t\treturn false;\n\t\t}\n\n\t\tif (counter === 0) {\n\t\t\trange = createRange();\n\t\t\trange.startContainer = node;\n\t\t\trange.startOffset = 0;\n\t\t}\n\n\t\tdist = breakLength - counter;\n\n\t\tif (dist > len) {\n\t\t\tcounter += len;\n\t\t\tpos = len;\n\t\t}\n\n\t\twhile (pos < len) {\n\t\t\tdist = breakLength - counter;\n\n\t\t\tif (counter === 0) {\n\t\t\t\tpos += 1;\n\t\t\t\trange = createRange();\n\t\t\t\trange.startContainer = node;\n\t\t\t\trange.startOffset = pos;\n\t\t\t}\n\n\t\t\tif (pos + dist >= len) {\n\t\t\t\tcounter += len - pos;\n\t\t\t\tpos = len;\n\t\t\t} else {\n\t\t\t\tpos += dist;\n\t\t\t\trange.endContainer = node;\n\t\t\t\trange.endOffset = pos;\n\t\t\t\tlocations.push(cfiFromRange(range, cfiBase));\n\t\t\t\tcounter = 0;\n\t\t\t}\n\t\t}\n\n\t\tprev = node;\n\t};\n\n\twalkTextNodes(body, parser);\n\n\tif (range && range.startContainer && prev) {\n\t\trange.endContainer = prev;\n\t\trange.endOffset = prev.textContent ? prev.textContent.length : 0;\n\t\tlocations.push(cfiFromRange(range, cfiBase));\n\t\tcounter = 0;\n\t}\n\n\treturn locations;\n}
-
-self.onmessage = (event) => {
-\tconst message = event && event.data;\n\tif (!message || message.type !== \"parse\") {\n\t\treturn;\n\t}\n\tconst id = message.id;\n\ttry {\n\t\tif (typeof DOMParser === \"undefined\") {\n\t\t\tthrow new Error(\"DOMParser is not available in this worker\");\n\t\t}\n\t\tconst parser = new DOMParser();\n\t\tconst doc = parser.parseFromString(message.xhtml, \"application/xhtml+xml\");\n\t\tconst locations = parseLocations(doc, message.cfiBase, message.chars);\n\t\tself.postMessage({ id, locations });\n\t} catch (error) {\n\t\tself.postMessage({ id, error: (error && error.message) || String(error) });\n\t}\n};\n`;
+	if (!node) {
+		return null;
+	}
+	if (node.id) {
+		return node.id;
+	}
+	if (typeof node.getAttribute === "function") {
+		return node.getAttribute("id") || null;
+	}
+	return null;
 }
 
+function textNodes(container) {
+	if (!container || !container.childNodes) {
+		return [];
+	}
+	return Array.prototype.slice.call(container.childNodes).filter((node) => node && node.nodeType === TEXT_NODE);
+}
+
+function elementChildren(container) {
+	if (!container) {
+		return [];
+	}
+	if (container.children) {
+		return Array.prototype.slice.call(container.children);
+	}
+	if (!container.childNodes) {
+		return [];
+	}
+	return Array.prototype.slice.call(container.childNodes).filter((node) => node && node.nodeType === ELEMENT_NODE);
+}
+
+function position(anchor) {
+	if (!anchor || !anchor.parentNode) {
+		return 0;
+	}
+	if (anchor.nodeType === ELEMENT_NODE) {
+		const children = elementChildren(anchor.parentNode);
+		return children.indexOf(anchor);
+	}
+	const children = textNodes(anchor.parentNode);
+	return children.indexOf(anchor);
+}
+
+function step(node) {
+	const nodeType = node && node.nodeType === TEXT_NODE ? "text" : "element";
+	return {
+		id: nodeType === "element" ? getNodeId(node) : null,
+		type: nodeType,
+		index: position(node)
+	};
+}
+
+function pathTo(node, offset) {
+	const segment = {
+		steps: [],
+		terminal: { offset: null }
+	};
+	let currentNode = node;
+	while (currentNode && currentNode.parentNode && currentNode.parentNode.nodeType !== DOCUMENT_NODE) {
+		segment.steps.unshift(step(currentNode));
+		currentNode = currentNode.parentNode;
+	}
+	if (offset != null && offset >= 0) {
+		segment.terminal.offset = offset;
+		const lastStep = segment.steps[segment.steps.length - 1];
+		if (!lastStep || lastStep.type !== "text") {
+			segment.steps.push({ type: "text", index: 0, id: null });
+		}
+	}
+	return segment;
+}
+
+function equalStep(stepA, stepB) {
+	if (!stepA || !stepB) {
+		return false;
+	}
+	return stepA.index === stepB.index && stepA.type === stepB.type && stepA.id === stepB.id;
+}
+
+function joinSteps(steps) {
+	if (!steps || steps.length === 0) {
+		return "";
+	}
+	return steps.map((part) => {
+		let segment = "";
+		if (part.type === "element") {
+			segment += (part.index + 1) * 2;
+		}
+		if (part.type === "text") {
+			segment += 1 + (2 * part.index);
+		}
+		if (part.id) {
+			segment += "[" + part.id + "]";
+		}
+		return segment;
+	}).join("/");
+}
+
+function segmentString(segment) {
+	let segmentString = "/";
+	segmentString += joinSteps(segment.steps);
+	if (segment.terminal && segment.terminal.offset != null) {
+		segmentString += ":" + segment.terminal.offset;
+	}
+	return segmentString;
+}
+
+function cfiFromRange(range, base) {
+	const startSegment = pathTo(range.startContainer, range.startOffset);
+	const endSegment = pathTo(range.endContainer, range.endOffset);
+
+	let commonLen = 0;
+	const maxLen = Math.min(startSegment.steps.length, endSegment.steps.length);
+	while (commonLen < maxLen && equalStep(startSegment.steps[commonLen], endSegment.steps[commonLen])) {
+		commonLen += 1;
+	}
+
+	if (commonLen === startSegment.steps.length &&
+			commonLen === endSegment.steps.length &&
+			startSegment.terminal.offset !== endSegment.terminal.offset &&
+			commonLen > 0) {
+		commonLen -= 1;
+	}
+
+	const pathSteps = startSegment.steps.slice(0, commonLen);
+	const startSteps = startSegment.steps.slice(commonLen);
+	const endSteps = endSegment.steps.slice(commonLen);
+
+	const pathString = segmentString({ steps: pathSteps, terminal: { offset: null } });
+	const startString = segmentString({ steps: startSteps, terminal: { offset: startSegment.terminal.offset } });
+	const endString = segmentString({ steps: endSteps, terminal: { offset: endSegment.terminal.offset } });
+
+	return "epubcfi(" + base + "!" + pathString + "," + startString + "," + endString + ")";
+}
+
+function walkTextNodes(root, callback) {
+	if (!root) {
+		return;
+	}
+	const stack = [root];
+	while (stack.length) {
+		const node = stack.pop();
+		if (!node || !node.childNodes) {
+			continue;
+		}
+		for (let i = node.childNodes.length - 1; i >= 0; i -= 1) {
+			const child = node.childNodes[i];
+			if (!child) {
+				continue;
+			}
+			if (child.nodeType === TEXT_NODE) {
+				callback(child);
+			} else if (child.nodeType === ELEMENT_NODE) {
+				stack.push(child);
+			}
+		}
+	}
+}
+
+function parseLocations(doc, cfiBase, chars) {
+	const locations = [];
+	let range;
+	const body = (doc && (doc.querySelector && doc.querySelector("body"))) ||
+		(doc && doc.getElementsByTagName && doc.getElementsByTagName("body")[0]) ||
+		(doc && doc.documentElement);
+	let counter = 0;
+	let prev;
+	const breakLength = chars || 150;
+
+	const createRange = () => {
+		return {
+			startContainer: undefined,
+			startOffset: undefined,
+			endContainer: undefined,
+			endOffset: undefined
+		};
+	};
+
+	const parser = (node) => {
+		const text = node && node.textContent ? node.textContent : "";
+		const len = text.length;
+		let dist;
+		let pos = 0;
+
+		if (text.trim().length === 0) {
+			return false;
+		}
+
+		if (counter === 0) {
+			range = createRange();
+			range.startContainer = node;
+			range.startOffset = 0;
+		}
+
+		dist = breakLength - counter;
+
+		if (dist > len) {
+			counter += len;
+			pos = len;
+		}
+
+		while (pos < len) {
+			dist = breakLength - counter;
+
+			if (counter === 0) {
+				pos += 1;
+				range = createRange();
+				range.startContainer = node;
+				range.startOffset = pos;
+			}
+
+			if (pos + dist >= len) {
+				counter += len - pos;
+				pos = len;
+			} else {
+				pos += dist;
+				range.endContainer = node;
+				range.endOffset = pos;
+				locations.push(cfiFromRange(range, cfiBase));
+				counter = 0;
+			}
+		}
+
+		prev = node;
+	};
+
+	walkTextNodes(body, parser);
+
+	if (range && range.startContainer && prev) {
+		range.endContainer = prev;
+		range.endOffset = prev.textContent ? prev.textContent.length : 0;
+		locations.push(cfiFromRange(range, cfiBase));
+		counter = 0;
+	}
+
+	return locations;
+}
+
+self.onmessage = (event) => {
+	const message = event && event.data;
+	if (!message || message.type !== "parse") {
+		return;
+	}
+	const id = message.id;
+	try {
+		if (typeof DOMParser === "undefined") {
+			throw new Error("DOMParser is not available in this worker");
+		}
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(message.xhtml, "application/xhtml+xml");
+		const locations = parseLocations(doc, message.cfiBase, message.chars);
+		self.postMessage({ id, locations });
+	} catch (error) {
+		self.postMessage({ id, error: (error && error.message) || String(error) });
+	}
+};
+`;
+}
