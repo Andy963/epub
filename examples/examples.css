@@ -105,6 +105,9 @@ body {
   font-family: arial, sans-serif;
   font-weight: bold;
   cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 0;
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
@@ -125,6 +128,12 @@ body {
 
 .arrow:active, .navlink:hover {
   color: #000;
+}
+
+.arrow:focus-visible, .navlink:focus-visible {
+  outline: 3px solid #777;
+  outline-offset: 4px;
+  border-radius: 4px;
 }
 
 #book-wrapper {
