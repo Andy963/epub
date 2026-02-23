@@ -25,16 +25,13 @@ class Container {
 	 * Parse the Container XML
 	 * @param  {document} containerDocument
 	 */
-	parse(containerDocument){
+	parse(containerDocument: any): void {
 		//-- <rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml"/>
-		var rootfile;
-
 		if(!containerDocument) {
 			throw new Error("Container File Not Found");
 		}
 
-		rootfile = qs(containerDocument, "rootfile");
-
+		const rootfile = qs(containerDocument, "rootfile");
 		if(!rootfile) {
 			throw new Error("No RootFile Found");
 		}
@@ -45,7 +42,7 @@ class Container {
 		}
 
 		this.packagePath = packagePath;
-		this.directory = path.dirname(this.packagePath);
+		this.directory = path.dirname(packagePath);
 		this.encoding = containerDocument.xmlEncoding;
 	}
 
