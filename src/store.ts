@@ -1,4 +1,4 @@
-import {defer, isXml, parse} from "./utils/core";
+import {defer, isXml, parse, tryRevokeObjectUrl} from "./utils/core";
 import httpRequest from "./utils/request";
 import mime from "./utils/mime";
 import Path from "./utils/path";
@@ -406,20 +406,19 @@ class Store {
 	 * @param  {string} url url of the item in the store
 	 */
 	revokeUrl(url: string): void {
-		const w = window as any;
-		var _URL = window.URL || w.webkitURL || w.mozURL;
-		var fromCache = this.urlCache[url];
-		if(fromCache) _URL.revokeObjectURL(fromCache);
+		const fromCache = this.urlCache[url];
+		if (!fromCache) {
+			return;
+		}
+
+		tryRevokeObjectUrl(fromCache);
+		delete this.urlCache[url];
 	}
 
 	destroy(): void {
-		const w = window as any;
-		var _URL = window.URL || w.webkitURL || w.mozURL;
 		for (let key in this.urlCache) {
 			const value = this.urlCache[key];
-			if (value && typeof value === "string" && value.indexOf("blob:") === 0) {
-				_URL.revokeObjectURL(value);
-			}
+			tryRevokeObjectUrl(value);
 		}
 		this.urlCache = {};
 		this.removeListeners();

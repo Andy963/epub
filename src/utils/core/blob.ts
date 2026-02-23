@@ -42,6 +42,22 @@ export function revokeBlobUrl(url) {
 	return _URL.revokeObjectURL(url);
 }
 
+export function isObjectUrl(url: unknown): url is string {
+	return typeof url === "string" && url.indexOf("blob:") === 0;
+}
+
+export function tryRevokeObjectUrl(url: unknown): void {
+	if (!isObjectUrl(url) || !_URL || typeof (_URL as any).revokeObjectURL !== "function") {
+		return;
+	}
+
+	try {
+		(_URL as any).revokeObjectURL(url);
+	} catch (e) {
+		// NOOP
+	}
+}
+
 /**
  * Create a new base64 encoded url
  * @param {any} content
@@ -80,4 +96,3 @@ export function blob2base64(blob: Blob): Promise<string> {
 		};
 	});
 }
-

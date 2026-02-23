@@ -1,4 +1,4 @@
-import {defer, isXml, parse} from "./utils/core";
+import {defer, isXml, parse, tryRevokeObjectUrl} from "./utils/core";
 import request from "./utils/request";
 import mime from "./utils/mime";
 import Path from "./utils/path";
@@ -44,6 +44,37 @@ class Archive {
 		this.obfuscation = obfuscation;
 	}
 
+	private decodePath(url: string): string {
+		if (!url || typeof url !== "string") {
+			return "";
+		}
+
+		const decode =
+			typeof window !== "undefined" && window.decodeURIComponent
+				? window.decodeURIComponent
+				: decodeURIComponent;
+		const stripped = url.charAt(0) === "/" ? url.slice(1) : url;
+		return decode(stripped);
+	}
+
+	private getEntry(url: string): { decodedPath: string; entry: any } | undefined {
+		if (!this.zip) {
+			return;
+		}
+
+		const decodedPath = this.decodePath(url);
+		if (!decodedPath) {
+			return;
+		}
+
+		const entry = this.zip.file(decodedPath);
+		if (!entry) {
+			return;
+		}
+
+		return { decodedPath, entry };
+	}
+
 	private uint8ArrayToBase64(uint8array: Uint8Array): string {
 		// Avoid stack overflow for large arrays
 		let binary = "";
@@ -75,6 +106,9 @@ class Archive {
 	 * @return {Promise} zipfile
 	 */
 	openUrl(zipUrl: string, isBase64?: boolean): Promise<any> {
+		if (!this.zip) {
+			return Promise.reject(new Error("Archive is not initialized"));
+		}
 		return request(zipUrl, "binary")
 			.then(function(data){
 				return this.zip.loadAsync(data, {"base64": isBase64});
@@ -155,16 +189,18 @@ class Archive {
 	 * @return {Blob}
 	 */
 	private getBlob(url: string, mimeType?: string): Promise<Blob> | undefined {
-		const w = window as any;
-		var decodededUrl = w.decodeURIComponent(url.substr(1)); // Remove first slash
-		var entry = this.zip && this.zip.file(decodededUrl);
+		const found = this.getEntry(url);
+		if (!found) {
+			return;
+		}
+		const { decodedPath, entry } = found;
 
 		if(entry) {
 			mimeType = mimeType || mime.lookup(entry.name);
 			return entry.async("uint8array").then(function(uint8array) {
 				const obfuscation = this.obfuscation;
 				const bytes = obfuscation && typeof obfuscation.deobfuscate === "function"
-					? obfuscation.deobfuscate(decodededUrl, uint8array)
+					? obfuscation.deobfuscate(decodedPath, uint8array)
 					: uint8array;
 				return new Blob([bytes], {type : mimeType});
 			}.bind(this));
@@ -178,9 +214,11 @@ class Archive {
 	 * @return {string}
 	 */
 	private getText(url: string, encoding?: string): Promise<string> | undefined {
-		const w = window as any;
-		var decodededUrl = w.decodeURIComponent(url.substr(1)); // Remove first slash
-		var entry = this.zip && this.zip.file(decodededUrl);
+		const found = this.getEntry(url);
+		if (!found) {
+			return;
+		}
+		const { entry } = found;
 
 		if(entry) {
 			return entry.async("string").then(function(text) {
@@ -196,16 +234,18 @@ class Archive {
 	 * @return {string} base64 encoded
 	 */
 	private getBase64(url: string, mimeType?: string): Promise<string> | undefined {
-		const w = window as any;
-		var decodededUrl = w.decodeURIComponent(url.substr(1)); // Remove first slash
-		var entry = this.zip && this.zip.file(decodededUrl);
+		const found = this.getEntry(url);
+		if (!found) {
+			return;
+		}
+		const { decodedPath, entry } = found;
 
 		if(entry) {
 			mimeType = mimeType || mime.lookup(entry.name);
 			return entry.async("uint8array").then(function(uint8array) {
 				const obfuscation = this.obfuscation;
 				const bytes = obfuscation && typeof obfuscation.deobfuscate === "function"
-					? obfuscation.deobfuscate(decodededUrl, uint8array)
+					? obfuscation.deobfuscate(decodedPath, uint8array)
 					: uint8array;
 
 				const base64 = this.uint8ArrayToBase64(bytes);
@@ -278,20 +318,19 @@ class Archive {
 	 * @param  {string} url url of the item in the archive
 	 */
 	revokeUrl(url: string): void {
-		const w = window as any;
-		var _URL = window.URL || w.webkitURL || w.mozURL;
-		var fromCache = this.urlCache[url];
-		if(fromCache) _URL.revokeObjectURL(fromCache);
+		const fromCache = this.urlCache[url];
+		if (!fromCache) {
+			return;
+		}
+
+		tryRevokeObjectUrl(fromCache);
+		delete this.urlCache[url];
 	}
 
 	destroy(): void {
-		const w = window as any;
-		var _URL = window.URL || w.webkitURL || w.mozURL;
 		for (let key in this.urlCache) {
 			const value = this.urlCache[key];
-			if (value && typeof value === "string" && value.indexOf("blob:") === 0) {
-				_URL.revokeObjectURL(value);
-			}
+			tryRevokeObjectUrl(value);
 		}
 		this.zip = undefined;
 		this.urlCache = {};
