@@ -6,14 +6,14 @@ import { isNumber, prefixed } from "../utils/core";
  * @param {number} [height]
  */
 export function size(width, height) {
-	var viewport: any = { scale: 1.0, scalable: "no" };
+	const viewport: { scale: number; scalable: string; width?: number; height?: number } = { scale: 1.0, scalable: "no" };
 
 	this.layoutStyle("scrolling");
 
 	if (width >= 0) {
 		this.width(width);
 		viewport.width = width;
-		this.css("padding", "0 " + (width / 12) + "px");
+		this.css("padding", `0 ${width / 12}px`);
 	}
 
 	if (height >= 0) {
@@ -35,13 +35,13 @@ export function size(width, height) {
  * @param {number} gap
  */
 export function columns(width, height, columnWidth, gap, dir?) {
-	let COLUMN_AXIS = prefixed("column-axis");
-	let COLUMN_GAP = prefixed("column-gap");
-	let COLUMN_WIDTH = prefixed("column-width");
-	let COLUMN_FILL = prefixed("column-fill");
+	const COLUMN_AXIS = prefixed("column-axis");
+	const COLUMN_GAP = prefixed("column-gap");
+	const COLUMN_WIDTH = prefixed("column-width");
+	const COLUMN_FILL = prefixed("column-fill");
 
-	let writingMode = this.writingMode();
-	let axis = (writingMode.indexOf("vertical") === 0) ? "vertical" : "horizontal";
+	const writingMode = this.writingMode();
+	const axis = writingMode.indexOf("vertical") === 0 ? "vertical" : "horizontal";
 
 	this.layoutStyle("paginated");
 
@@ -53,7 +53,7 @@ export function columns(width, height, columnWidth, gap, dir?) {
 	this.height(height);
 
 	// Deal with Mobile trying to scale to viewport
-	this.viewport({ width: width, height: height, scale: 1.0, scalable: "no" });
+	this.viewport({ width, height, scale: 1.0, scalable: "no" });
 
 	// TODO: inline-block needs more testing
 	// Fixes Safari column cut offs, but causes RTL issues
@@ -63,16 +63,16 @@ export function columns(width, height, columnWidth, gap, dir?) {
 	this.css("margin", "0", true);
 
 	if (axis === "vertical") {
-		this.css("padding-top", (gap / 2) + "px", true);
-		this.css("padding-bottom", (gap / 2) + "px", true);
+		this.css("padding-top", `${gap / 2}px`, true);
+		this.css("padding-bottom", `${gap / 2}px`, true);
 		this.css("padding-left", "20px");
 		this.css("padding-right", "20px");
 		this.css(COLUMN_AXIS, "vertical");
 	} else {
 		this.css("padding-top", "20px");
 		this.css("padding-bottom", "20px");
-		this.css("padding-left", (gap / 2) + "px", true);
-		this.css("padding-right", (gap / 2) + "px", true);
+		this.css("padding-left", `${gap / 2}px`, true);
+		this.css("padding-right", `${gap / 2}px`, true);
 		this.css(COLUMN_AXIS, "horizontal");
 	}
 
@@ -81,8 +81,8 @@ export function columns(width, height, columnWidth, gap, dir?) {
 
 	this.css(COLUMN_FILL, "auto");
 
-	this.css(COLUMN_GAP, gap + "px");
-	this.css(COLUMN_WIDTH, columnWidth + "px");
+	this.css(COLUMN_GAP, `${gap}px`);
+	this.css(COLUMN_WIDTH, `${columnWidth}px`);
 
 	// Fix glyph clipping in WebKit
 	// https://github.com/futurepress/epub.js/issues/983
@@ -96,10 +96,10 @@ export function columns(width, height, columnWidth, gap, dir?) {
  * @param {number} offsetY
  */
 export function scaler(scale, offsetX?, offsetY?) {
-	var tx = isNumber(offsetX) ? offsetX : 0;
-	var ty = isNumber(offsetY) ? offsetY : 0;
+	const tx = isNumber(offsetX) ? offsetX : 0;
+	const ty = isNumber(offsetY) ? offsetY : 0;
 	this.css("transform-origin", "top left");
-	this.css("transform", "matrix(" + scale + ", 0, 0, " + scale + ", " + tx + ", " + ty + ")");
+	this.css("transform", `matrix(${scale}, 0, 0, ${scale}, ${tx}, ${ty})`);
 }
 
 /**
@@ -222,4 +222,3 @@ export function fit(width, height, section, viewportOverride, zoom) {
 
 	this.css("background-color", "transparent");
 }
-

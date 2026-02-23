@@ -29,6 +29,13 @@
 - [x] `src/book.ts`（Book public API surface）
 - [x] `src/book/init.ts`（Book initialization: loading/loaded/ready）
 - [x] `src/book/unpack.ts`（Packaging unpack + navigation / pagelist loading）
+- [x] `src/contents.ts`（Contents facade: view DOM API + events wiring）
+- [x] `src/contents/cfi.ts`（CFI/range mapping within view）
+- [x] `src/contents/dimensions.ts`（Content width/height measurement helpers）
+- [x] `src/contents/events.ts`（DOM events + resize/selection observers）
+- [x] `src/contents/layout.ts`（Pagination / scaling / sizing）
+- [x] `src/contents/reading-system.ts`（`navigator.epubReadingSystem` injection）
+- [x] `src/contents/styles.ts`（CSS / viewport / injected assets）
 - [x] `src/container.ts`（Container xml parse + package path resolution）
 - [x] `src/epubcfi.ts`（EpubCFI facade + method wiring）
 - [x] `src/epubcfi/compare.ts`（CFI ordering）
@@ -77,6 +84,7 @@
 - 2026-02-23：`src/archive.ts` 提取 url decode / URLFactory helper，并修复 promise rejection 传播（避免异常路径 pending）。
 - 2026-02-23：`src/annotations.ts` 清理缩进、收敛 hash/index 管理（避免重复移除与 stale hash），保持外部 API 与 attach/detach 语义不变。
 - 2026-02-23：`src/container.ts` 补充类型签名并减少 `var` / 临时变量噪音（无行为变更）。
+- 2026-02-23：`src/contents/layout.ts` 使用 `const` + template string 清理字符串拼接噪音（无行为变更）。
 
 ## 重构点（Backlog）
 
@@ -84,13 +92,13 @@
 
 1. `src/book/*` / `src/rendition/*`：梳理对象生命周期与依赖方向，减少“隐式全局 / side effect”耦合（可扩展性）。
 2. `src/utils/core/dom.ts`：DOM 遍历/查询工具较集中，建议按“纯函数 vs DOM 环境依赖”分层，便于复用与测试（结构 / 可测试性）。
+3. `src/contents/styles.ts`：`viewport()` 解析与拼接逻辑较长，建议抽取为可测试的纯函数；同时补充 viewport 相关回归测试（可维护性）。
+4. `src/contents/dimensions.ts`：`width()/height()` 对 `0` 的处理依赖 truthy/falsy，建议明确约束（允许 `0` 还是视为 unset）并补充测试（正确性 / 可维护性）。
 
 ## 未阅读模块（Not Yet Reviewed）
 
 ### Source (src/)
 
-- [ ] `src/contents/`
-- [ ] `src/contents.ts`
 - [ ] `src/core/`
 - [ ] `src/displayoptions.ts`
 - [ ] `src/index.ts`
