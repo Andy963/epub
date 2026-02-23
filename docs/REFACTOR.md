@@ -6,7 +6,7 @@
 
 ## 当前基线
 
-- Base: `origin/dev` @ `6746283`
+- Base: `origin/dev` @ `853275a`
 - Last updated: 2026-02-23
 
 ## 已阅读模块（Reviewed）
@@ -33,6 +33,7 @@
 - [x] `src/core/zipjs-archive.ts`（ZipJsArchive: url cache + revoke lifecycle）
 - [x] `src/utils/core.ts`（core utilities re-export surface）
 - [x] `src/utils/core/blob.ts`（Blob / base64 helpers + URL revoke helpers）
+- [x] `src/utils/core/dom.ts`（DOM traversal / query helpers）
 
 ### Tests
 
@@ -47,6 +48,7 @@
 - `src/epubcfi/`（已读：`src/epubcfi/parse.ts`、`src/epubcfi/compare.ts`）
 - `src/locations/`（已读：`src/locations/generate.ts`、`src/locations/process.ts`）
 - `src/pdf/`（已读：`src/pdf/book.ts`、`src/pdf/book/render.ts`、`src/pdf/book/layers.ts`）
+- `src/utils/`（已读：`src/utils/core.ts`、`src/utils/core/blob.ts`、`src/utils/core/dom.ts`）
 
 ## 已完成（Completed）
 
@@ -55,13 +57,14 @@
 - 2026-02-23：`src/locations/worker.ts` 将 worker 源码由“转义字符串”改为可读的多行模板字符串（无行为变更）。
 - 2026-02-23：`src/pdf/book*.ts` 清理无意义的转义（降低 `no-useless-escape` 告警噪音，保持输出不变）。
 - 2026-02-23：统一 `Archive` / `ZipJsArchive` / `Store` 的 `revokeUrl()` 语义：仅对 object URL 执行 revoke，并在 revoke 后清理 cache（提升鲁棒性，避免返回已失效的 blob URL）。
+- 2026-02-23：`src/utils/core/dom.ts` 抽取 `bounds()` / `borders()` 的 computed-style 求和逻辑并复用常量 props 列表（减少重复分配，保持行为不变）。
 
 ## 重构点（Backlog）
 
 按优先级从高到低（会随阅读推进持续更新）：
 
 1. `src/book/*` / `src/rendition/*`：梳理对象生命周期与依赖方向，减少“隐式全局 / side effect”耦合（可扩展性）。
-2. `src/utils/core/dom.ts`：DOM 遍历/查询工具较集中，建议按“纯函数 vs DOM 环境依赖”分层，便于复用与测试（结构 / 可测试性）。
+2. `src/utils/core/dom.ts`：DOM 遍历/查询工具较集中，后续可按“纯函数 vs DOM 环境依赖”分层，便于复用与测试（结构 / 可测试性）。
 
 ## 未阅读模块（Not Yet Reviewed）
 
@@ -92,4 +95,3 @@
 - [ ] `src/speech-highlighter.ts`
 - [ ] `src/spine.ts`
 - [ ] `src/themes.ts`
-- [ ] `src/utils/`
