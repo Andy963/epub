@@ -2,11 +2,13 @@
 
 目标：在**不改变对外行为与发布契约**的前提下，逐步提升代码结构、可扩展性、可维护性与性能；每次改动都尽量小、可审阅、可回滚。
 
-> 说明：本文件用于追踪“已经阅读过哪些模块 / 待重构点 / 尚未阅读模块”。每轮重构开始前，先同步到 `origin/main`（以本地 `origin/main` 引用为准），并确保工作区干净。
+> 说明：本文件用于追踪“已经阅读过哪些模块 / 待重构点 / 尚未阅读模块”。每轮重构开始前，先同步到 `origin/dev`（以本地 `refs/remotes/origin/dev` 引用为准），并确保工作区干净；若当前环境无法 `git fetch`，需在“当前基线”中注明实际使用的本地 remote-tracking 引用与 commit。
 
 ## 当前基线
 
-- Base: `origin/main` @ `9166ba8`
+- Base: `upstream/dev` (local) @ `a4fd4f8`
+- Local `origin/dev` (stale): `origin/dev` (local) @ `9166ba8`（当前环境无法 `git fetch`）
+- Working branch: `refactor/incremental-20260223`
 - Last updated: 2026-02-23
 
 ## 已阅读模块（Reviewed）
@@ -33,6 +35,12 @@
 - [x] `src/locations/worker.ts`（Worker protocol + inlined parser implementation）
 - [x] `src/section.ts`（Section load/render/find/search）
 - [x] `src/utils/core.ts`（core utilities re-export surface）
+- [x] `src/utils/core/dom.ts`（DOM helpers + walk/treeWalker/sprint）
+- [x] `src/utils/path.ts`（Path parsing / resolving facade）
+- [x] `src/utils/url.ts`（Url parsing / resolving facade）
+- [x] `src/utils/request.ts`（XHR request + XML/HTML/JSON parsing）
+- [x] `src/utils/queue.ts`（Sequential task queue）
+- [x] `src/utils/performance.ts`（Lightweight perf spans/marks tracker）
 
 ### Tests
 
@@ -54,6 +62,7 @@
 - 2026-02-23：`src/epubcfi/compare.ts` 移除未使用变量与重复声明，并补充 `EpubCFI.compare` 回归测试。
 - 2026-02-23：`src/locations/worker.ts` 将 worker 源码由“转义字符串”改为可读的多行模板字符串（无行为变更）。
 - 2026-02-23：`src/pdf/book*.ts` 清理无意义的转义（降低 `no-useless-escape` 告警噪音，保持输出不变）。
+- 2026-02-23：`src/utils/queue.ts` 重写为更可读的 TypeScript（类型收敛、抽取 schedule、保持现有执行语义；promise task reject 不再导致队列卡死）。
 
 ## 重构点（Backlog）
 
@@ -93,4 +102,4 @@
 - [ ] `src/spine.ts`
 - [ ] `src/store.ts`
 - [ ] `src/themes.ts`
-- [ ] `src/utils/`
+- [ ] `src/utils/`（Partial：已读 `core/dom.ts`、`path.ts`、`url.ts`、`request.ts`、`queue.ts`、`performance.ts`）
