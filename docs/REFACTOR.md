@@ -6,7 +6,7 @@
 
 ## 当前基线
 
-- Base: `origin/dev` @ `ffd0f29`
+- Base: `origin/dev` @ `1547883`
 - Last updated: 2026-02-23
 
 ## 已阅读模块（Reviewed）
@@ -15,10 +15,6 @@
 
 - [x] `package.json`（scripts: lint / typecheck / karma test）
 - [x] `karma.conf.js`（Karma + webpack pipeline）
-
-### Docs
-
-- [x] `docs/typescript-migration-plan.md`（索引与拆分结构）
 
 ### Source (src/)
 
