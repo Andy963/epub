@@ -9,6 +9,7 @@ lib
 dist
 es
 documentation/html
+docs/
 types/*.js
 types/generated
 epubjs-*.tgz

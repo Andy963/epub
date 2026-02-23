@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+set -eu
+
+if git diff --cached --name-only --diff-filter=ACMR -- | grep -q '^docs/'; then
+  echo "error: committing files under docs/ is not allowed" >&2
+  echo "hint: remove them from the commit, or move the content outside docs/" >&2
+  exit 1
+fi
+
