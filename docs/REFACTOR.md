@@ -46,12 +46,14 @@
 - `src/book/`（已读：`src/book/init.ts`、`src/book/unpack.ts`）
 - `src/epubcfi/`（已读：`src/epubcfi/parse.ts`、`src/epubcfi/compare.ts`）
 - `src/locations/`（已读：`src/locations/generate.ts`、`src/locations/process.ts`）
+- `src/pdf/`（已读：`src/pdf/book.ts`、`src/pdf/book/render.ts`、`src/pdf/book/layers.ts`）
 
 ## 已完成（Completed）
 
 - 2026-02-22：`src/epub.ts` 清理未使用 import（降低依赖噪音，减少 lint 告警）。
 - 2026-02-23：`src/epubcfi/compare.ts` 移除未使用变量与重复声明，并补充 `EpubCFI.compare` 回归测试。
 - 2026-02-23：`src/locations/worker.ts` 将 worker 源码由“转义字符串”改为可读的多行模板字符串（无行为变更）。
+- 2026-02-23：`src/pdf/book*.ts` 清理无意义的转义（降低 `no-useless-escape` 告警噪音，保持输出不变）。
 
 ## 重构点（Backlog）
 
@@ -79,7 +81,6 @@
 - [ ] `src/navigation.ts`
 - [ ] `src/packaging.ts`
 - [ ] `src/pagelist.ts`
-- [ ] `src/pdf/`
 - [ ] `src/playback-controller/`
 - [ ] `src/playback-controller.ts`
 - [ ] `src/read-aloud.ts`

@@ -23,7 +23,7 @@ export async function renderPage(pageNumber, parentKey) {
 	].join("\n");
 
 	const layers = [
-		`<img src=\"${pageData.url}\" alt=\"Page ${pageNumber}\" />`,
+		`<img src="${pageData.url}" alt="Page ${pageNumber}" />`,
 		pageData.textLayer || "",
 		pageData.annotationLayer || "",
 	].join("");
@@ -33,11 +33,11 @@ export async function renderPage(pageNumber, parentKey) {
 		'<html lang="en">',
 		"<head>",
 		'<meta charset="utf-8" />',
-		`<meta name=\"viewport\" content=\"width=${pageData.width}, height=${pageData.height}\" />`,
+		`<meta name="viewport" content="width=${pageData.width}, height=${pageData.height}" />`,
 		`<style>${style}</style>`,
 		"</head>",
 		"<body>",
-		`<div class=\"page\">${layers}</div>`,
+		`<div class="page">${layers}</div>`,
 		"</body>",
 		"</html>",
 	].join("");
@@ -244,4 +244,3 @@ export async function renderPageData(pageNumber, options?) {
 		annotationLayer,
 	};
 }
-

@@ -353,14 +353,14 @@ class PdfBook {
 		];
 	}
 
-	escapeHtml(value) {
-		return String(value)
-			.replace(/&/g, "&amp;")
-			.replace(/</g, "&lt;")
-			.replace(/>/g, "&gt;")
-			.replace(/\"/g, "&quot;")
-			.replace(/'/g, "&#39;");
-	}
+		escapeHtml(value) {
+			return String(value)
+				.replace(/&/g, "&amp;")
+				.replace(/</g, "&lt;")
+				.replace(/>/g, "&gt;")
+				.replace(/"/g, "&quot;")
+				.replace(/'/g, "&#39;");
+		}
 
 	destroy() {
 		return destroyImpl.call(this);
@@ -370,4 +370,3 @@ class PdfBook {
 EventEmitter(PdfBook.prototype);
 
 export default PdfBook;
-

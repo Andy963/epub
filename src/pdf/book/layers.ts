@@ -87,10 +87,10 @@ export async function buildTextLayerHtml(textContent, viewport) {
 			`transform:rotate(${angle}rad) scaleX(${scaleX})`,
 		].join(";");
 
-		spans.push(`<span style=\"${style}\">${this.escapeHtml(text)}</span>`);
+		spans.push(`<span style="${style}">${this.escapeHtml(text)}</span>`);
 	}
 
-	return `<div class=\"textLayer\">${spans.join("")}<div class=\"endOfContent\"></div></div>`;
+	return `<div class="textLayer">${spans.join("")}<div class="endOfContent"></div></div>`;
 }
 
 export async function buildAnnotationLayerHtml(annotations, viewport, page) {
@@ -249,13 +249,12 @@ export async function buildAnnotationLayerHtml(annotations, viewport, page) {
 			`height:${height}px`,
 		].join(";");
 
-		links.push(`<a href=\"${this.escapeHtml(href)}\" style=\"${style}\"></a>`);
+		links.push(`<a href="${this.escapeHtml(href)}" style="${style}"></a>`);
 	}
 
 	if (links.length === 0) {
 		return "";
 	}
 
-	return `<div class=\"annotationLayer\">${links.join("")}</div>`;
+	return `<div class="annotationLayer">${links.join("")}</div>`;
 }
-
