@@ -30,13 +30,14 @@ export interface RenditionOptions {
   infinite?: boolean,
   overflow?: string,
   snap?: boolean | object,
-  defaultDirection?: string,
-  allowScriptedContent?: boolean,
-  allowPopups?: boolean,
-  openExternalLinks?: boolean,
-  prefetch?: boolean | number,
-  footnotes?: boolean | { detect?: boolean, extract?: boolean },
-  fixedLayout?: null | { zoom?: number | "fit-width" | "fit-page" }
+	  defaultDirection?: string,
+	  allowScriptedContent?: boolean,
+	  allowUnsafeScriptedContent?: boolean,
+	  allowPopups?: boolean,
+	  openExternalLinks?: boolean,
+	  prefetch?: boolean | number,
+	  footnotes?: boolean | { detect?: boolean, extract?: boolean },
+	  fixedLayout?: null | { zoom?: number | "fit-width" | "fit-page" }
 }
 
 export interface DisplayedLocation {

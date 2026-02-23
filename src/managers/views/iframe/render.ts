@@ -21,7 +21,7 @@ export function create() {
 
 	// sandbox
 	this.iframe.sandbox = "allow-same-origin";
-	if (this.settings.allowScriptedContent) {
+	if (this.settings.allowScriptedContent && this.settings.allowUnsafeScriptedContent) {
 		this.iframe.sandbox += " allow-scripts";
 	}
 	if (this.settings.allowPopups) {
@@ -402,4 +402,3 @@ export function onLoad(event, promise) {
 
 	promise.resolve(this.contents);
 }
-

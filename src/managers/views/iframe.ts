@@ -64,6 +64,7 @@ class IframeView {
 			method: undefined,
 			forceRight: false,
 			allowScriptedContent: false,
+			allowUnsafeScriptedContent: false,
 			allowPopups: false
 		}, options || {});
 

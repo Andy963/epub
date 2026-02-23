@@ -73,10 +73,11 @@ class DefaultViewManager {
 			ignoreClass: "",
 			fullsize: undefined,
 			snap: false,
-			afterScrolledTimeout: 20,
-			allowScriptedContent: false,
-			allowPopups: false
-		});
+				afterScrolledTimeout: 20,
+				allowScriptedContent: false,
+				allowUnsafeScriptedContent: false,
+				allowPopups: false
+			});
 
 		extend(this.settings, options.settings || {});
 
@@ -88,10 +89,11 @@ class DefaultViewManager {
 			method: this.settings.method, // srcdoc, blobUrl, write
 			width: 0,
 			height: 0,
-			forceEvenPages: true,
-			allowScriptedContent: this.settings.allowScriptedContent,
-			allowPopups: this.settings.allowPopups
-		};
+				forceEvenPages: true,
+				allowScriptedContent: this.settings.allowScriptedContent,
+				allowUnsafeScriptedContent: this.settings.allowUnsafeScriptedContent,
+				allowPopups: this.settings.allowPopups
+			};
 
 		this.rendered = false;
 

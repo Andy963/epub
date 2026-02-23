@@ -10,9 +10,11 @@ export interface ViewSettings {
   method?: string,
   width?: number,
   height?: number,
-  forceEvenPages?: boolean,
-  allowScriptedContent?: boolean
-}
+	  forceEvenPages?: boolean,
+	  allowScriptedContent?: boolean,
+	  allowUnsafeScriptedContent?: boolean,
+	  allowPopups?: boolean
+	}
 
 export default class View {
   constructor(section: Section, options: ViewSettings);

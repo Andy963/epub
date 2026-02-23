@@ -68,6 +68,7 @@ import { afterDisplayed as afterDisplayedImpl, afterRemoved as afterRemovedImpl 
  * @param {boolean | object} [options.snap=false] use snap scrolling
  * @param {string} [options.defaultDirection='ltr'] default text direction
  * @param {boolean} [options.allowScriptedContent=false] enable running scripts in content
+ * @param {boolean} [options.allowUnsafeScriptedContent=false] allow running scripts in an iframe with same-origin access (unsafe)
  * @param {boolean} [options.allowPopups=false] enable opening popup in content
  * @param {boolean | number} [options.prefetch=false] prefetch neighboring sections after display
  */
@@ -93,14 +94,15 @@ class Rendition {
 			stylesheet: null,
 			resizeOnOrientationChange: true,
 			script: null,
-			snap: false,
-			defaultDirection: "ltr",
-			allowScriptedContent: false,
-			allowPopups: false,
-			openExternalLinks: true,
-			prefetch: false,
-			footnotes: false,
-			fixedLayout: null
+				snap: false,
+				defaultDirection: "ltr",
+				allowScriptedContent: false,
+				allowUnsafeScriptedContent: false,
+				allowPopups: false,
+				openExternalLinks: true,
+				prefetch: false,
+				footnotes: false,
+				fixedLayout: null
 		});
 
 		extend(this.settings, options);
@@ -337,4 +339,3 @@ class Rendition {
 EventEmitter(Rendition.prototype);
 
 export default Rendition;
-

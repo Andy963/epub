@@ -45,10 +45,11 @@ class ContinuousViewManager extends DefaultViewManager {
 			width: undefined,
 			height: undefined,
 			snap: false,
-			afterScrolledTimeout: 10,
-			allowScriptedContent: false,
-			allowPopups: false
-		});
+				afterScrolledTimeout: 10,
+				allowScriptedContent: false,
+				allowUnsafeScriptedContent: false,
+				allowPopups: false
+			});
 
 		extend(this.settings, options.settings || {});
 
@@ -63,11 +64,12 @@ class ContinuousViewManager extends DefaultViewManager {
 			flow: this.settings.flow,
 			layout: this.layout,
 			width: 0,
-			height: 0,
-			forceEvenPages: false,
-			allowScriptedContent: this.settings.allowScriptedContent,
-			allowPopups: this.settings.allowPopups
-		};
+				height: 0,
+				forceEvenPages: false,
+				allowScriptedContent: this.settings.allowScriptedContent,
+				allowUnsafeScriptedContent: this.settings.allowUnsafeScriptedContent,
+				allowPopups: this.settings.allowPopups
+			};
 
 		this.scrollTop = 0;
 		this.scrollLeft = 0;
