@@ -1,4 +1,4 @@
-import {qs, qsa } from "./utils/core";
+import { qs, qsa } from "./utils/core";
 
 /**
  * Open DisplayOptions Format Parser
@@ -28,38 +28,40 @@ class DisplayOptions {
 	 * @return {DisplayOptions} self
 	 */
 	parse(displayOptionsDocument: any): this {
-		if(!displayOptionsDocument) {
+		if (!displayOptionsDocument) {
 			return this;
 		}
 
 		const displayOptionsNode = qs(displayOptionsDocument, "display_options");
-		if(!displayOptionsNode) {
+		if (!displayOptionsNode) {
 			return this;
-		} 
+		}
 
-		const options = qsa(displayOptionsNode, "option");
-		options.forEach((el) => {
-			let value = "";
+		const options: ArrayLike<Element> = qsa(displayOptionsNode, "option");
+		for (let i = 0; i < options.length; i++) {
+			const el = options[i];
+			if (!el) continue;
 
-			if (el.childNodes.length) {
-				value = el.childNodes[0].nodeValue;
+			const name = el.getAttribute("name");
+			if (!name) continue;
+
+			const value = el.textContent || "";
+
+			switch (name) {
+				case "interactive":
+					this.interactive = value;
+					break;
+				case "fixed-layout":
+					this.fixedLayout = value;
+					break;
+				case "open-to-spread":
+					this.openToSpread = value;
+					break;
+				case "orientation-lock":
+					this.orientationLock = value;
+					break;
 			}
-
-			switch (el.attributes.name.value) {
-			    case "interactive":
-			        this.interactive = value;
-			        break;
-			    case "fixed-layout":
-			        this.fixedLayout = value;
-			        break;
-			    case "open-to-spread":
-			        this.openToSpread = value;
-			        break;
-			    case "orientation-lock":
-			        this.orientationLock = value;
-			        break;
-			}
-		});
+		}
 
 		return this;
 	}

@@ -1,5 +1,21 @@
 import { isNumber, borders } from "../utils/core";
 
+function normalizeCssSize(value: any): string {
+	if (isNumber(value)) {
+		return `${value}px`;
+	}
+
+	return String(value);
+}
+
+function setDimensionStyle(el: HTMLElement, prop: "width" | "height", value: any): void {
+	if (!value) {
+		return;
+	}
+
+	el.style[prop] = normalizeCssSize(value);
+}
+
 /**
  * Get or Set width
  * @param {number} [w]
@@ -7,16 +23,8 @@ import { isNumber, borders } from "../utils/core";
  */
 export function width(w?) {
 	// var frame = this.documentElement;
-	var frame = this.content;
-
-	if (w && isNumber(w)) {
-		w = w + "px";
-	}
-
-	if (w) {
-		frame.style.width = w;
-		// this.content.style.width = w;
-	}
+	const frame = this.content;
+	setDimensionStyle(frame, "width", w);
 
 	return parseInt(this.window.getComputedStyle(frame)["width"]);
 }
@@ -28,16 +36,8 @@ export function width(w?) {
  */
 export function height(h?) {
 	// var frame = this.documentElement;
-	var frame = this.content;
-
-	if (h && isNumber(h)) {
-		h = h + "px";
-	}
-
-	if (h) {
-		frame.style.height = h;
-		// this.content.style.height = h;
-	}
+	const frame = this.content;
+	setDimensionStyle(frame, "height", h);
 
 	return parseInt(this.window.getComputedStyle(frame)["height"]);
 }
@@ -48,15 +48,8 @@ export function height(h?) {
  * @returns {number} width
  */
 export function contentWidth(w?) {
-	var content = this.content || this.document.body;
-
-	if (w && isNumber(w)) {
-		w = w + "px";
-	}
-
-	if (w) {
-		content.style.width = w;
-	}
+	const content = this.content || this.document.body;
+	setDimensionStyle(content, "width", w);
 
 	return parseInt(this.window.getComputedStyle(content)["width"]);
 }
@@ -67,15 +60,8 @@ export function contentWidth(w?) {
  * @returns {number} height
  */
 export function contentHeight(h?) {
-	var content = this.content || this.document.body;
-
-	if (h && isNumber(h)) {
-		h = h + "px";
-	}
-
-	if (h) {
-		content.style.height = h;
-	}
+	const content = this.content || this.document.body;
+	setDimensionStyle(content, "height", h);
 
 	return parseInt(this.window.getComputedStyle(content)["height"]);
 }
@@ -85,24 +71,18 @@ export function contentHeight(h?) {
  * @returns {number} width
  */
 export function textWidth() {
-	let rect;
-	let width;
-	let range = this.document.createRange();
-	let content = this.content || this.document.body;
-	let border = borders(content);
+	const range = this.document.createRange();
+	const content = this.content || this.document.body;
+	const border = borders(content);
 
 	// Select the contents of frame
 	range.selectNodeContents(content);
 
 	// get the width of the text content
-	rect = range.getBoundingClientRect();
-	width = rect.width;
+	const rect = range.getBoundingClientRect();
+	const extra = border && border.width ? border.width : 0;
 
-	if (border && border.width) {
-		width += border.width;
-	}
-
-	return Math.round(width);
+	return Math.round(rect.width + extra);
 }
 
 /**
@@ -110,17 +90,14 @@ export function textWidth() {
  * @returns {number} height
  */
 export function textHeight() {
-	let rect;
-	let height;
-	let range = this.document.createRange();
-	let content = this.content || this.document.body;
+	const range = this.document.createRange();
+	const content = this.content || this.document.body;
 
 	range.selectNodeContents(content);
 
-	rect = range.getBoundingClientRect();
-	height = rect.bottom;
+	const rect = range.getBoundingClientRect();
 
-	return Math.round(height);
+	return Math.round(rect.bottom);
 }
 
 /**
@@ -128,9 +105,7 @@ export function textHeight() {
  * @returns {number} width
  */
 export function scrollWidth() {
-	var width = this.documentElement.scrollWidth;
-
-	return width;
+	return this.documentElement.scrollWidth;
 }
 
 /**
@@ -138,8 +113,5 @@ export function scrollWidth() {
  * @returns {number} height
  */
 export function scrollHeight() {
-	var height = this.documentElement.scrollHeight;
-
-	return height;
+	return this.documentElement.scrollHeight;
 }
-

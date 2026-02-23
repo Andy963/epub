@@ -10,6 +10,7 @@
 - Local `origin/dev` (stale): `origin/dev` (local) @ `9166ba8`（当前环境无法 `git fetch`）
 - Working branch: `refactor/incremental-20260223`
 - Last updated: 2026-02-23
+- Tests note: 当前沙箱环境禁止进程监听端口（Karma 启动会 `EPERM`），因此无法在此环境内运行 `npm test` 的浏览器测试；仅能跑 `lint` / `tsc` 等无端口依赖的校验。
 
 ## 已阅读模块（Reviewed）
 
@@ -37,10 +38,12 @@
 - [x] `src/contents/reading-system.ts`（`navigator.epubReadingSystem` injection）
 - [x] `src/contents/styles.ts`（CSS / viewport / injected assets）
 - [x] `src/container.ts`（Container xml parse + package path resolution）
+- [x] `src/displayoptions.ts`（Open DisplayOptions parser）
 - [x] `src/epubcfi.ts`（EpubCFI facade + method wiring）
 - [x] `src/epubcfi/compare.ts`（CFI ordering）
 - [x] `src/epubcfi/parse.ts`（CFI parsing and type checks）
 - [x] `src/epub.ts`（public entry: `ePub()` factory + static exports）
+- [x] `src/layout.ts`（Layout calculation + CSS application）
 - [x] `src/locations.ts`（Locations orchestration + worker integration）
 - [x] `src/locations/worker.ts`（Worker protocol + inlined parser implementation）
 - [x] `src/section.ts`（Section load/render/find/search）
@@ -85,6 +88,9 @@
 - 2026-02-23：`src/annotations.ts` 清理缩进、收敛 hash/index 管理（避免重复移除与 stale hash），保持外部 API 与 attach/detach 语义不变。
 - 2026-02-23：`src/container.ts` 补充类型签名并减少 `var` / 临时变量噪音（无行为变更）。
 - 2026-02-23：`src/contents/layout.ts` 使用 `const` + template string 清理字符串拼接噪音（无行为变更）。
+- 2026-02-23：`src/contents/dimensions.ts` 抽取尺寸设置 helper、去重重复逻辑（保留原有 truthy 语义，不改变外部行为）。
+- 2026-02-23：`src/displayoptions.ts` 兼容 `NodeList` / `HTMLCollection`，并对缺失属性做容错（不改变有效输入的解析结果）。
+- 2026-02-23：`src/layout.ts` 修正 `format()` 的缩进与变量命名（不改变布局与 CSS 应用逻辑）。
 
 ## 重构点（Backlog）
 
@@ -100,9 +106,7 @@
 ### Source (src/)
 
 - [ ] `src/core/`
-- [ ] `src/displayoptions.ts`
 - [ ] `src/index.ts`
-- [ ] `src/layout.ts`
 - [ ] `src/managers/`（Partial：已读 `src/managers/helpers/stage.ts`、`src/managers/helpers/snap.ts`）
 - [ ] `src/mapping/`
 - [ ] `src/mapping.ts`

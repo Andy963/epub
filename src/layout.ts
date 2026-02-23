@@ -253,30 +253,42 @@ class Layout {
 	 * @param  {Contents} contents
 	 * @return {Promise}
 	 */
-		format(contents: any, section?: any, axis?: string): any {
-			var formating;
+	format(contents: any, section?: any, axis?: string): any {
+		let formatting;
 
-			if (this.name === "pre-paginated") {
-				let width = this.columnWidth;
-				if (
-					this.divisor > 1 &&
-					section &&
-					(section.index === 0 ||
-						(section.properties &&
-							section.properties.includes("page-spread-center")))
-				) {
-					width = this.spreadWidth;
-				}
-				formating = contents.fit(width, this.height, section, this.settings.viewport, this.settings.fixedLayoutZoom);
-			} else if (this._flow === "paginated") {
-				formating = contents.columns(this.width, this.height, this.columnWidth, this.gap, this.settings.direction);
-			} else if (axis && axis === "horizontal") {
-				formating = contents.size(null, this.height);
-			} else {
-			formating = contents.size(this.width, null);				
+		if (this.name === "pre-paginated") {
+			let width = this.columnWidth;
+			if (
+				this.divisor > 1 &&
+				section &&
+				(section.index === 0 ||
+					(section.properties &&
+						section.properties.includes("page-spread-center")))
+			) {
+				width = this.spreadWidth;
+			}
+			formatting = contents.fit(
+				width,
+				this.height,
+				section,
+				this.settings.viewport,
+				this.settings.fixedLayoutZoom
+			);
+		} else if (this._flow === "paginated") {
+			formatting = contents.columns(
+				this.width,
+				this.height,
+				this.columnWidth,
+				this.gap,
+				this.settings.direction
+			);
+		} else if (axis === "horizontal") {
+			formatting = contents.size(null, this.height);
+		} else {
+			formatting = contents.size(this.width, null);
 		}
 
-		return formating; // might be a promise in some View Managers
+		return formatting; // might be a promise in some View Managers
 	}
 
 	/**
