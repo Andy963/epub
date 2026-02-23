@@ -4,7 +4,15 @@
  */
 
 export { requestAnimationFrame } from "./core/animation";
-export { createBase64Url, createBlob, createBlobUrl, revokeBlobUrl, blob2base64 } from "./core/blob";
+export {
+	blob2base64,
+	createBase64Url,
+	createBlob,
+	createBlobUrl,
+	isObjectUrl,
+	revokeBlobUrl,
+	tryRevokeObjectUrl,
+} from "./core/blob";
 export { defer } from "./core/defer";
 export type { Deferred, DeferConstructor } from "./core/defer";
 export {

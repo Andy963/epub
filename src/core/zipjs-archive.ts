@@ -1,4 +1,4 @@
-import { defer, isXml, parse } from "../utils/core";
+import { defer, isXml, parse, tryRevokeObjectUrl } from "../utils/core";
 import mime from "../utils/mime";
 import Path from "../utils/path";
 
@@ -359,30 +359,19 @@ class ZipJsArchive {
 	}
 
 	revokeUrl(url: string): void {
-		const w = window as any;
-		const _URL = window.URL || w.webkitURL || w.mozURL;
 		const fromCache = this.urlCache[url];
-		if (fromCache) {
-			try {
-				_URL.revokeObjectURL(fromCache);
-			} catch (e) {
-				// NOOP
-			}
+		if (!fromCache) {
+			return;
 		}
+
+		tryRevokeObjectUrl(fromCache);
+		delete this.urlCache[url];
 	}
 
 	async destroy(): Promise<void> {
-		const w = window as any;
-		const _URL = window.URL || w.webkitURL || w.mozURL;
 		for (const key in this.urlCache) {
 			const value = this.urlCache[key];
-			if (value && typeof value === "string" && value.indexOf("blob:") === 0) {
-				try {
-					_URL.revokeObjectURL(value);
-				} catch (e) {
-					// NOOP
-				}
-			}
+			tryRevokeObjectUrl(value);
 		}
 
 		try {
