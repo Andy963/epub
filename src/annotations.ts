@@ -5,12 +5,11 @@ import { EVENTS } from "./utils/constants";
 type AnnotationType = "highlight" | "underline" | "mark";
 
 /**
-	* Handles managing adding & removing Annotations
-	* @param {Rendition} rendition
-	* @class
-	*/
+ * Handles managing adding & removing Annotations
+ * @param {Rendition} rendition
+ * @class
+ */
 class Annotations {
-
 	rendition: any;
 	highlights: Annotation[];
 	underlines: Annotation[];
@@ -18,7 +17,7 @@ class Annotations {
 	_annotations: Record<string, Annotation>;
 	_annotationsBySectionIndex: Record<number, string[]>;
 
-	constructor (rendition: any) {
+	constructor(rendition: any) {
 		this.rendition = rendition;
 		this.highlights = [];
 		this.underlines = [];
@@ -28,6 +27,10 @@ class Annotations {
 
 		this.rendition.hooks.render.register(this.inject.bind(this));
 		this.rendition.hooks.unloaded.register(this.clear.bind(this));
+	}
+
+	private annotationHash(cfiRange: string, type: AnnotationType): string {
+		return encodeURI(cfiRange + type);
 	}
 
 	/**
@@ -40,11 +43,11 @@ class Annotations {
 	 * @param {object} styles CSS styles to assign to annotation
 	 * @returns {Annotation} annotation
 	 */
-	add (type: AnnotationType, cfiRange: string, data?: any, cb?: any, className?: string, styles?: any): Annotation {
-		let hash = encodeURI(cfiRange + type);
-		let cfi = new EpubCFI(cfiRange);
-		let sectionIndex = cfi.spinePos;
-		let annotation = new Annotation({
+	add(type: AnnotationType, cfiRange: string, data?: any, cb?: any, className?: string, styles?: any): Annotation {
+		const hash = this.annotationHash(cfiRange, type);
+		const cfi = new EpubCFI(cfiRange);
+		const sectionIndex = cfi.spinePos;
+		const annotation = new Annotation({
 			type,
 			cfiRange,
 			data,
@@ -56,13 +59,14 @@ class Annotations {
 
 		this._annotations[hash] = annotation;
 
-		if (sectionIndex in this._annotationsBySectionIndex) {
-			this._annotationsBySectionIndex[sectionIndex].push(hash);
+		const existing = this._annotationsBySectionIndex[sectionIndex];
+		if (existing) {
+			existing.push(hash);
 		} else {
 			this._annotationsBySectionIndex[sectionIndex] = [hash];
 		}
 
-		let views = this.rendition.views();
+		const views = this.rendition.views();
 
 		views.forEach( (view) => {
 			if (annotation.sectionIndex === view.index) {
@@ -78,19 +82,20 @@ class Annotations {
 	 * @param {EpubCFI} cfiRange EpubCFI range the annotation is attached to
 	 * @param {string} type Type of annotation to add: "highlight", "underline", "mark"
 	 */
-	remove (cfiRange: string, type: AnnotationType) {
-		let hash = encodeURI(cfiRange + type);
+	remove(cfiRange: string, type: AnnotationType): void {
+		const hash = this.annotationHash(cfiRange, type);
 
-		if (hash in this._annotations) {
-			let annotation = this._annotations[hash];
+		if (Object.prototype.hasOwnProperty.call(this._annotations, hash)) {
+			const annotation = this._annotations[hash];
 
 			if (type && annotation.type !== type) {
 				return;
 			}
 
-			let views = this.rendition.views();
-			views.forEach( (view) => {
-				this._removeFromAnnotationBySectionIndex(annotation.sectionIndex, hash);
+			this._removeFromAnnotationBySectionIndex(annotation.sectionIndex, hash);
+
+			const views = this.rendition.views();
+			views.forEach((view) => {
 				if (annotation.sectionIndex === view.index) {
 					annotation.detach(view);
 				}
@@ -104,16 +109,21 @@ class Annotations {
 	 * Remove an annotations by Section Index
 	 * @private
 	 */
-	_removeFromAnnotationBySectionIndex (sectionIndex: number, hash: string) {
-		this._annotationsBySectionIndex[sectionIndex] = this._annotationsAt(sectionIndex).filter(h => h !== hash);
+	private _removeFromAnnotationBySectionIndex(sectionIndex: number, hash: string): void {
+		const remaining = this._annotationsAt(sectionIndex).filter((h) => h !== hash);
+		if (remaining.length) {
+			this._annotationsBySectionIndex[sectionIndex] = remaining;
+		} else {
+			delete this._annotationsBySectionIndex[sectionIndex];
+		}
 	}
 
 	/**
 	 * Get annotations by Section Index
 	 * @private
 	 */
-	_annotationsAt (index: number): string[] {
-		return this._annotationsBySectionIndex[index];
+	private _annotationsAt(index: number): string[] {
+		return this._annotationsBySectionIndex[index] || [];
 	}
 
 
@@ -125,7 +135,7 @@ class Annotations {
 	 * @param {string} className CSS class to assign to annotation
 	 * @param {object} styles CSS styles to assign to annotation
 	 */
-	highlight (cfiRange: string, data?: any, cb?: any, className?: string, styles?: any): Annotation {
+	highlight(cfiRange: string, data?: any, cb?: any, className?: string, styles?: any): Annotation {
 		return this.add("highlight", cfiRange, data, cb, className, styles);
 	}
 
@@ -137,7 +147,7 @@ class Annotations {
 	 * @param {string} className CSS class to assign to annotation
 	 * @param {object} styles CSS styles to assign to annotation
 	 */
-	underline (cfiRange: string, data?: any, cb?: any, className?: string, styles?: any): Annotation {
+	underline(cfiRange: string, data?: any, cb?: any, className?: string, styles?: any): Annotation {
 		return this.add("underline", cfiRange, data, cb, className, styles);
 	}
 
@@ -147,7 +157,7 @@ class Annotations {
 	 * @param {object} data Data to assign to annotation
 	 * @param {function} cb Callback after annotation is clicked
 	 */
-	mark (cfiRange: string, data?: any, cb?: any): Annotation {
+	mark(cfiRange: string, data?: any, cb?: any): Annotation {
 		return this.add("mark", cfiRange, data, cb);
 	}
 
@@ -165,15 +175,19 @@ class Annotations {
 	 * @param {View} view
 	 * @private
 	 */
-	inject (view: any) {
-		let sectionIndex = view.index;
-		if (sectionIndex in this._annotationsBySectionIndex) {
-			let annotations = this._annotationsBySectionIndex[sectionIndex];
-			annotations.forEach((hash) => {
-				let annotation = this._annotations[hash];
-				annotation.attach(view);
-			});
+	private inject(view: any): void {
+		const sectionIndex = view.index;
+		const hashes = this._annotationsBySectionIndex[sectionIndex];
+		if (!hashes || !hashes.length) {
+			return;
 		}
+
+		hashes.forEach((hash) => {
+			const annotation = this._annotations[hash];
+			if (annotation) {
+				annotation.attach(view);
+			}
+		});
 	}
 
 	/**
@@ -181,33 +195,43 @@ class Annotations {
 	 * @param {View} view
 	 * @private
 	 */
-	clear (view: any) {
-		let sectionIndex = view.index;
-		if (sectionIndex in this._annotationsBySectionIndex) {
-			let annotations = this._annotationsBySectionIndex[sectionIndex];
-			annotations.forEach((hash) => {
-				let annotation = this._annotations[hash];
-				annotation.detach(view);
-			});
+	private clear(view: any): void {
+		const sectionIndex = view.index;
+		const hashes = this._annotationsBySectionIndex[sectionIndex];
+		if (!hashes || !hashes.length) {
+			return;
 		}
+
+		hashes.forEach((hash) => {
+			const annotation = this._annotations[hash];
+			if (annotation) {
+				annotation.detach(view);
+			}
+		});
 	}
 
 	/**
 	 * [Not Implemented] Show annotations
 	 * @TODO: needs implementation in View
 	 */
-	show () {
-
-	}
+	show(): void {}
 
 	/**
 	 * [Not Implemented] Hide annotations
 	 * @TODO: needs implementation in View
 	 */
-	hide () {
+	hide(): void {}
 
-	}
+}
 
+interface AnnotationOptions {
+	type: AnnotationType;
+	cfiRange: string;
+	data?: any;
+	sectionIndex: number;
+	cb?: any;
+	className?: string;
+	styles?: any;
 }
 
 /**
@@ -238,15 +262,7 @@ class Annotation {
 	off: (event: string, listener?: (...args: any[]) => void) => this;
 	emit: (event: string, ...args: any[]) => boolean;
 
-	constructor ({
-		type,
-		cfiRange,
-		data,
-		sectionIndex,
-		cb,
-		className,
-		styles
-	}) {
+	constructor({ type, cfiRange, data, sectionIndex, cb, className, styles }: AnnotationOptions) {
 		this.type = type;
 		this.cfiRange = cfiRange;
 		this.data = data;
@@ -261,7 +277,7 @@ class Annotation {
 	 * Update stored data
 	 * @param {object} data
 	 */
-	update (data: any) {
+	update(data: any): void {
 		this.data = data;
 	}
 
@@ -269,9 +285,9 @@ class Annotation {
 	 * Add to a view
 	 * @param {View} view
 	 */
-		attach (view: any) {
-			let {cfiRange, data, type, cb, className, styles} = this;
-			let result;
+	attach(view: any): any {
+		const { cfiRange, data, type, cb, className, styles } = this;
+		let result;
 
 		if (type === "highlight") {
 			result = view.highlight(cfiRange, data, cb, className, styles);
@@ -290,8 +306,8 @@ class Annotation {
 	 * Remove from a view
 	 * @param {View} view
 	 */
-	detach (view: any) {
-		let {cfiRange, type} = this;
+	detach(view: any): any {
+		const { cfiRange, type } = this;
 		let result;
 
 		if (view) {
@@ -313,9 +329,7 @@ class Annotation {
 	 * [Not Implemented] Get text of an annotation
 	 * @TODO: needs implementation in contents
 	 */
-	text () {
-
-	}
+	text(): void {}
 
 }
 

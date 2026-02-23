@@ -24,9 +24,12 @@
 
 ### Source (src/)
 
+- [x] `src/annotations.ts`（Annotations store + view injection hooks）
+- [x] `src/archive.ts`（Archive backend: JSZip + resource url creation）
 - [x] `src/book.ts`（Book public API surface）
 - [x] `src/book/init.ts`（Book initialization: loading/loaded/ready）
 - [x] `src/book/unpack.ts`（Packaging unpack + navigation / pagelist loading）
+- [x] `src/container.ts`（Container xml parse + package path resolution）
 - [x] `src/epubcfi.ts`（EpubCFI facade + method wiring）
 - [x] `src/epubcfi/compare.ts`（CFI ordering）
 - [x] `src/epubcfi/parse.ts`（CFI parsing and type checks）
@@ -71,6 +74,9 @@
 - 2026-02-23：`src/managers/helpers/snap.ts` 清理未使用 import / 混合缩进与字符串转义噪音，保持原有滚动与 snap 语义不变。
 - 2026-02-23：`src/managers/helpers/stage.ts` 修复 `no-prototype-builtins` / quotes / semi 告警噪音（不改变布局计算与 DOM 写入行为）。
 - 2026-02-23：`src/rendition/links.ts` 移除无意义的 `\"` 转义，保持 `querySelector` selector 字符串输出不变。
+- 2026-02-23：`src/archive.ts` 提取 url decode / URLFactory helper，并修复 promise rejection 传播（避免异常路径 pending）。
+- 2026-02-23：`src/annotations.ts` 清理缩进、收敛 hash/index 管理（避免重复移除与 stale hash），保持外部 API 与 attach/detach 语义不变。
+- 2026-02-23：`src/container.ts` 补充类型签名并减少 `var` / 临时变量噪音（无行为变更）。
 
 ## 重构点（Backlog）
 
@@ -83,9 +89,6 @@
 
 ### Source (src/)
 
-- [ ] `src/annotations.ts`
-- [ ] `src/archive.ts`
-- [ ] `src/container.ts`
 - [ ] `src/contents/`
 - [ ] `src/contents.ts`
 - [ ] `src/core/`
