@@ -1,6 +1,35 @@
 const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
 
+const BOX_WIDTH_PROPS = [
+	"paddingRight",
+	"paddingLeft",
+	"marginRight",
+	"marginLeft",
+	"borderRightWidth",
+	"borderLeftWidth",
+];
+
+const BOX_HEIGHT_PROPS = [
+	"paddingTop",
+	"paddingBottom",
+	"marginTop",
+	"marginBottom",
+	"borderTopWidth",
+	"borderBottomWidth",
+];
+
+const BOUNDS_WIDTH_PROPS = ["width", ...BOX_WIDTH_PROPS];
+const BOUNDS_HEIGHT_PROPS = ["height", ...BOX_HEIGHT_PROPS];
+
+function sumComputedStyle(style, props) {
+	let total = 0;
+	for (let i = 0; i < props.length; i++) {
+		total += parseFloat(style[props[i]]) || 0;
+	}
+	return total;
+}
+
 /**
  * Gets the height of a document
  * @returns {number} height
@@ -63,35 +92,8 @@ export function prefixed(unprefixed) {
  */
 export function bounds(el) {
 	var style = window.getComputedStyle(el);
-	var widthProps = [
-		"width",
-		"paddingRight",
-		"paddingLeft",
-		"marginRight",
-		"marginLeft",
-		"borderRightWidth",
-		"borderLeftWidth",
-	];
-	var heightProps = [
-		"height",
-		"paddingTop",
-		"paddingBottom",
-		"marginTop",
-		"marginBottom",
-		"borderTopWidth",
-		"borderBottomWidth",
-	];
-
-	var width = 0;
-	var height = 0;
-
-	widthProps.forEach(function (prop) {
-		width += parseFloat(style[prop]) || 0;
-	});
-
-	heightProps.forEach(function (prop) {
-		height += parseFloat(style[prop]) || 0;
-	});
+	var width = sumComputedStyle(style, BOUNDS_WIDTH_PROPS);
+	var height = sumComputedStyle(style, BOUNDS_HEIGHT_PROPS);
 
 	return {
 		height: height,
@@ -108,33 +110,8 @@ export function bounds(el) {
  */
 export function borders(el) {
 	var style = window.getComputedStyle(el);
-	var widthProps = [
-		"paddingRight",
-		"paddingLeft",
-		"marginRight",
-		"marginLeft",
-		"borderRightWidth",
-		"borderLeftWidth",
-	];
-	var heightProps = [
-		"paddingTop",
-		"paddingBottom",
-		"marginTop",
-		"marginBottom",
-		"borderTopWidth",
-		"borderBottomWidth",
-	];
-
-	var width = 0;
-	var height = 0;
-
-	widthProps.forEach(function (prop) {
-		width += parseFloat(style[prop]) || 0;
-	});
-
-	heightProps.forEach(function (prop) {
-		height += parseFloat(style[prop]) || 0;
-	});
+	var width = sumComputedStyle(style, BOX_WIDTH_PROPS);
+	var height = sumComputedStyle(style, BOX_HEIGHT_PROPS);
 
 	return {
 		height: height,
