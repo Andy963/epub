@@ -6,7 +6,7 @@
 
 ## 当前基线
 
-- Base: `origin/dev` @ `853275a`
+- Base: `origin/dev` @ `afef30a`
 - Last updated: 2026-02-23
 
 ## 已阅读模块（Reviewed）
@@ -18,10 +18,13 @@
 
 ### Source (src/)
 
+- [x] `src/annotations.ts`（Annotations store + view lifecycle hooks）
 - [x] `src/archive.ts`（Archive: url cache + revoke lifecycle）
 - [x] `src/book.ts`（Book public API surface）
 - [x] `src/book/init.ts`（Book initialization: loading/loaded/ready）
 - [x] `src/book/unpack.ts`（Packaging unpack + navigation / pagelist loading）
+- [x] `src/container.ts`（Container XML parsing）
+- [x] `src/displayoptions.ts`（DisplayOptions XML parsing）
 - [x] `src/epubcfi.ts`（EpubCFI facade + method wiring）
 - [x] `src/epubcfi/compare.ts`（CFI ordering）
 - [x] `src/epubcfi/parse.ts`（CFI parsing and type checks）
@@ -58,6 +61,8 @@
 - 2026-02-23：`src/pdf/book*.ts` 清理无意义的转义（降低 `no-useless-escape` 告警噪音，保持输出不变）。
 - 2026-02-23：统一 `Archive` / `ZipJsArchive` / `Store` 的 `revokeUrl()` 语义：仅对 object URL 执行 revoke，并在 revoke 后清理 cache（提升鲁棒性，避免返回已失效的 blob URL）。
 - 2026-02-23：`src/utils/core/dom.ts` 抽取 `bounds()` / `borders()` 的 computed-style 求和逻辑并复用常量 props 列表（减少重复分配，保持行为不变）。
+- 2026-02-23：`src/annotations.ts` 提取 hash 计算与参数类型，减少重复索引更新，并对注入/清理流程做缺失容错（无行为变更，提升可维护性）。
+- 2026-02-23：`src/container.ts` / `src/displayoptions.ts` 补全类型签名并加强 XML 字段读取的容错（无行为变更，提升健壮性）。
 
 ## 重构点（Backlog）
 
@@ -70,12 +75,9 @@
 
 ### Source (src/)
 
-- [ ] `src/annotations.ts`
-- [ ] `src/container.ts`
 - [ ] `src/contents/`
 - [ ] `src/contents.ts`
 - [ ] `src/core/`
-- [ ] `src/displayoptions.ts`
 - [ ] `src/index.ts`
 - [ ] `src/layout.ts`
 - [ ] `src/managers/`
