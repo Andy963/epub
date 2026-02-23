@@ -43,6 +43,10 @@ export async function replaceDocument(doc: Document, baseUrl: string, parentKey:
 	const replaceAttribute = async (el, attr) => {
 		const value = el.getAttribute(attr);
 		const replaced = await this.loadHref(value, baseUrl, parentKey, parents);
+		if (replaced === "") {
+			el.removeAttribute(attr);
+			return;
+		}
 		if (replaced && replaced !== value) {
 			el.setAttribute(attr, replaced);
 		}
@@ -75,6 +79,10 @@ export async function replaceDocument(doc: Document, baseUrl: string, parentKey:
 	for (const el of Array.from(doc.querySelectorAll("[*|href]:not([href])"))) {
 		const value = el.getAttributeNS(XLINK_NS, "href");
 		const replaced = await this.loadHref(value, baseUrl, parentKey, parents);
+		if (replaced === "") {
+			el.removeAttributeNS(XLINK_NS, "href");
+			continue;
+		}
 		if (replaced && replaced !== value) {
 			el.setAttributeNS(XLINK_NS, "href", replaced);
 		}
@@ -122,6 +130,9 @@ export async function replaceSrcset(srcset: string, baseUrl: string, parentKey: 
 			continue;
 		}
 		const replacedUrl = await this.loadHref(url, baseUrl, parentKey, parents);
+		if (!replacedUrl) {
+			continue;
+		}
 		rewritten.push([replacedUrl].concat(segments).join(" "));
 	}
 
@@ -141,4 +152,3 @@ export async function replaceCSS(str: string, baseUrl: string, parentKey: string
 		(_, url) => this.loadHref(url, baseUrl, parentKey, parents).then((nextUrl) => `@import \"${nextUrl}\"`)
 	);
 }
-

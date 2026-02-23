@@ -1,4 +1,5 @@
 import { createBlobUrl, blob2base64 } from "../utils/core";
+import { isUnsafeUrl } from "../utils/sanitize";
 import Url from "../utils/url";
 import mime from "../utils/mime";
 
@@ -116,6 +117,10 @@ export function loadHref(href: string, baseUrl: string, parentKey: string, paren
 		return Promise.resolve(href);
 	}
 
+	if (isUnsafeUrl(href, { allowData: true })) {
+		return Promise.resolve("");
+	}
+
 	if (this.isExternalUrl(href)) {
 		return Promise.resolve(href);
 	}
@@ -161,4 +166,3 @@ export async function createItem(resolvedUrl: string, item, parents?: string[]):
 
 	return this.createBinaryUrl(resolvedUrl, mediaType);
 }
-

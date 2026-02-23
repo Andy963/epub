@@ -1,5 +1,6 @@
 import { qs } from "./core";
 import Url from "./url";
+import { isUnsafeUrl } from "./sanitize";
 
 interface SectionLike {
 	url: string;
@@ -97,6 +98,11 @@ export function replaceLinks(
 		}
 
 		if(href.indexOf("mailto:") === 0){
+			return;
+		}
+
+		if (isUnsafeUrl(href)) {
+			link.removeAttribute("href");
 			return;
 		}
 

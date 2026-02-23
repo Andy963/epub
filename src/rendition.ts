@@ -41,6 +41,7 @@ import { handleLinks as handleLinksImpl, resolveFootnote as resolveFootnoteImpl 
 import { requireManager as requireManagerImpl, requireView as requireViewImpl, setManager as setManagerImpl } from "./rendition/manager";
 import { attachTo as attachToImpl, start as startImpl } from "./rendition/start";
 import { afterDisplayed as afterDisplayedImpl, afterRemoved as afterRemovedImpl } from "./rendition/views";
+import { sanitizeDocument } from "./utils/sanitize";
 
 /**
  * Displays an Epub as a series of Views for each Section.
@@ -133,6 +134,13 @@ class Rendition {
 		this.hooks.content.register(this.handleLinks.bind(this));
 		this.hooks.content.register(this.passEvents.bind(this));
 		this.hooks.content.register(this.adjustImages.bind(this));
+
+		this.book.spine.hooks.content.register((doc) => {
+			if (this.settings.allowUnsafeScriptedContent) {
+				return;
+			}
+			sanitizeDocument(doc);
+		});
 
 		this.book.spine.hooks.content.register(this.injectIdentifier.bind(this));
 
